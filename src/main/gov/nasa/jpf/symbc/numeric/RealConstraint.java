@@ -45,6 +45,14 @@ public class RealConstraint extends Constraint {
     public RealConstraint(RealConstraint rc) {
         super(rc.getLeft(), rc.getComparator(), rc.getRight());
       }
+    
+    public RealConstraint makeCopy() {
+    	RealConstraint copy = new RealConstraint(this);
+    	if(this.and != null) {
+    		copy.and = this.and.makeCopy();
+    	}
+    	return copy;
+    }
 
     public String toString() {
       return /* "%Real% " + */super.toString();
