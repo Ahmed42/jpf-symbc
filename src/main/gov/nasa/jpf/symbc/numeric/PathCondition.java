@@ -170,9 +170,11 @@ public class PathCondition implements Comparable<PathCondition> {
             _addDet(c, (IntegerExpression) l, (IntegerExpression) r);
         else if (l instanceof RealExpression && r instanceof RealExpression)
             _addDet(c, (RealExpression) l, (RealExpression) r);
+        else if (l instanceof RealExpression && r instanceof IntegerExpression)
+        	_addDet(c, (RealExpression) l, (IntegerExpression) r);
         else
             throw new RuntimeException(
-                    "## Error: _addDet (type incompatibility real/integer) " + c + " " + l + " " + r);
+                    "## Error: _addDet (type incompatibility integer/real) " + c + " " + l + " " + r);
 
     }
 

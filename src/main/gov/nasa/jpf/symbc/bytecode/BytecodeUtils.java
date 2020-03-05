@@ -656,7 +656,8 @@ public class BytecodeUtils {
         default:
             throw new RuntimeException("Unhandled SymVarType: " + type);
         }
-        return name + "_" + (symVarCounter++) + suffix;
+        return name;
+        //return name + "_" + (symVarCounter++) + suffix;
     }
 
 }

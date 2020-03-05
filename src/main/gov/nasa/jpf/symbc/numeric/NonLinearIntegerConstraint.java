@@ -45,6 +45,15 @@ public class NonLinearIntegerConstraint extends Constraint {
     public NonLinearIntegerConstraint(NonLinearIntegerConstraint c) {
       super(c.getLeft(), c.getComparator(), c.getRight());
     }
+    
+    public NonLinearIntegerConstraint makeCopy() {
+    	NonLinearIntegerConstraint copy = new NonLinearIntegerConstraint(this);
+    	if(this.and != null) {
+    		copy.and = this.and.makeCopy();
+    	}
+    	return copy;
+    }
+    
     public String toString() {
       return "%NonLinInteger% " + super.toString();
     }

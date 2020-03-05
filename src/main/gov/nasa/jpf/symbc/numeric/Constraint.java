@@ -53,6 +53,9 @@ public abstract class Constraint implements Comparable<Constraint> {
     comp = c;
     right = r;
   }
+  
+  public abstract Constraint makeCopy();
+  
 
   /** Returns the left expression. Subclasses may override to give tighter type bounds.*/
   public Expression getLeft() {

@@ -46,6 +46,12 @@ public class MixedConstraint extends Constraint {
         super(mc.getLeft(), mc.getComparator(), mc.getRight());
       }
     
+    public MixedConstraint makeCopy() {
+    	MixedConstraint copy = new MixedConstraint(this);
+    	copy.and = this.and.makeCopy();
+    	return copy;
+    }
+    
     public String toString() {
       return /* "%Mixed% " + */super.toString();
     }

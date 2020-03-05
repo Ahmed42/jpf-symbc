@@ -36,6 +36,14 @@ public class LogicalORLinearIntegerConstraints extends Constraint{
 		list = l;
 	}
 	
+	public LogicalORLinearIntegerConstraints makeCopy() {
+		LogicalORLinearIntegerConstraints copy = new LogicalORLinearIntegerConstraints(this.list);
+		if(this.and != null) {
+    		copy.and = this.and.makeCopy();
+    	}
+    	return copy;
+    }
+	
 	
 	public void addToList (LinearIntegerConstraint lic) {
 		if (!list.contains(lic)) {

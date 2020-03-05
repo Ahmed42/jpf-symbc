@@ -45,6 +45,14 @@ public class LinearIntegerConstraint extends Constraint {
     public LinearIntegerConstraint(LinearIntegerConstraint lic) {
         super(lic.getLeft(), lic.getComparator(), lic.getRight());
       }
+    
+    public LinearIntegerConstraint makeCopy() {
+    	LinearIntegerConstraint copy = new LinearIntegerConstraint(this);
+    	if(this.and != null) {
+    		copy.and = this.and.makeCopy();
+    	}
+    	return copy;
+    }
 
     public String toString() {
       return /* "%LinearInteger% " + */super.toString();
