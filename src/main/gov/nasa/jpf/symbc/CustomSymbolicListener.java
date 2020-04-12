@@ -31,6 +31,8 @@ import gov.nasa.jpf.vm.ThreadInfo;
 import gov.nasa.jpf.vm.Types;
 import gov.nasa.jpf.vm.VM;
 
+import gov.nasa.jpf.vm.FieldInfo;
+
 import gov.nasa.jpf.jvm.bytecode.ARETURN;
 import gov.nasa.jpf.jvm.bytecode.DRETURN;
 import gov.nasa.jpf.jvm.bytecode.FRETURN;
@@ -111,7 +113,8 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                 pc.solve();
 
             // TODO put the error details in the result/transformation of the method
-            Pair<PathCondition, Expression> pathSummary = new Pair<>(pc, null);
+            // TODO add static fields transformations
+            SymbolicPathSummary pathSummary = new SymbolicPathSummary(pc, null, null);
             SymbolicMethodSummary symbolicMethodSummary = methodsSymbolicSummaries.get(currentMethodName);
             
             // TODO add the following, even though it might not be possible for such case to happen
@@ -127,12 +130,15 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
     @Override
     public void instructionExecuted(VM vm, ThreadInfo currentThread, Instruction nextInstruction,
             Instruction executedInstruction) {
+    	
 
         if (!vm.getSystemState().isIgnored()) {
             Instruction insn = executedInstruction;
             // SystemState ss = vm.getSystemState();
             ThreadInfo ti = currentThread;
             Config conf = vm.getConfig();
+            
+            //System.out.println(ti.isFirstStepInsn() + "\t" + insn);
 
             if (insn instanceof JVMInvokeInstruction) {
                 JVMInvokeInstruction md = (JVMInvokeInstruction) insn;
@@ -227,10 +233,12 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                     String longName = mi.getLongName();
                     int numberOfArgs = mi.getNumberOfArguments();
 
+
                     if (((BytecodeUtils.isClassSymbolic(conf, className, mi, methodName))
                             || BytecodeUtils.isMethodSymbolic(conf, mi.getFullName(), numberOfArgs, null))) {
-
+                    	//System.out.println("path!");
                         ChoiceGenerator<?> cg = vm.getChoiceGenerator();
+                        //System.out.println(cg);
                         if (!(cg instanceof PCChoiceGenerator)) {
                             ChoiceGenerator<?> prev_cg = cg.getPreviousChoiceGenerator();
                             while (!((prev_cg == null) || (prev_cg instanceof PCChoiceGenerator))) {
@@ -238,8 +246,10 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             }
                             cg = prev_cg;
                         }
+                        //System.out.println(cg);
                         if ((cg instanceof PCChoiceGenerator) && ((PCChoiceGenerator) cg).getCurrentPC() != null) {
                             PathCondition pc = ((PCChoiceGenerator) cg).getCurrentPC();
+                            //System.out.println("PATH!" + pc);
                             // pc.solve(); //we only solve the pc
                             if (SymbolicInstructionFactory.concolicMode) { // TODO: cleaner
                                 SymbolicConstraintsGeneral solver = new SymbolicConstraintsGeneral();
@@ -251,6 +261,9 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             if (!PathCondition.flagSolved) {
                                 return;
                             }
+                            
+                            
+                            
                            
 
                             String returnString = "";
@@ -343,7 +356,24 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                               //System.out.println("***********************************"); } }
                               // YN
                             
-                            Pair<PathCondition, Expression> pathSummary = new Pair<>(pc, result);
+                            
+                            Vector<Pair<String, Expression>> sFieldsTransforms = new Vector<Pair<String, Expression>>();
+                            
+                            
+                            for(FieldInfo fieldInfo : ci.getDeclaredStaticFields()) {
+                            	Object fieldVal = ci.getModifiableStaticElementInfo().getFieldAttr(fieldInfo);
+                                
+                            	if(fieldVal instanceof Expression) {
+                            		String fieldName = fieldInfo.getName();
+                            		
+                            		Pair<String, Expression> fieldNameTrans = new Pair<>(fieldName, (Expression) fieldVal);
+                            		
+                            		sFieldsTransforms.add(fieldNameTrans);
+                            	} 
+                            }
+                            
+
+                            SymbolicPathSummary pathSummary = new SymbolicPathSummary(pc, result, sFieldsTransforms);
                             SymbolicMethodSummary symbolicMethodSummary = methodsSymbolicSummaries.get(longName);
                             
                             if(!symbolicMethodSummary.containsPathSummary(pathSummary)) {
