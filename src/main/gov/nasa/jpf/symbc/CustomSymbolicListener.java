@@ -30,8 +30,11 @@ import gov.nasa.jpf.vm.StackFrame;
 import gov.nasa.jpf.vm.ThreadInfo;
 import gov.nasa.jpf.vm.Types;
 import gov.nasa.jpf.vm.VM;
+import gov.nasa.jpf.vm.Transition;
 
 import gov.nasa.jpf.vm.FieldInfo;
+import gov.nasa.jpf.vm.ElementInfo;
+import gov.nasa.jpf.vm.MJIEnv;
 
 import gov.nasa.jpf.jvm.bytecode.ARETURN;
 import gov.nasa.jpf.jvm.bytecode.DRETURN;
@@ -47,6 +50,13 @@ import gov.nasa.jpf.search.Search;
 import gov.nasa.jpf.symbc.bytecode.BytecodeUtils;
 import gov.nasa.jpf.symbc.bytecode.INVOKESTATIC;
 import gov.nasa.jpf.symbc.concolic.PCAnalyzer;
+import gov.nasa.jpf.symbc.heap.HeapChoiceGenerator;
+import gov.nasa.jpf.symbc.heap.SymbolicInputHeap;
+import gov.nasa.jpf.jvm.bytecode.PUTSTATIC;
+import gov.nasa.jpf.jvm.bytecode.PUTFIELD;
+import gov.nasa.jpf.vm.bytecode.WriteInstruction;
+import gov.nasa.jpf.jvm.bytecode.GETSTATIC;
+import gov.nasa.jpf.jvm.bytecode.GETFIELD;
 
 import gov.nasa.jpf.symbc.numeric.Comparator;
 import gov.nasa.jpf.symbc.numeric.Expression;
@@ -58,15 +68,17 @@ import gov.nasa.jpf.symbc.numeric.RealConstant;
 import gov.nasa.jpf.symbc.numeric.RealExpression;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
 import gov.nasa.jpf.symbc.numeric.SymbolicReal;
-
+import gov.nasa.jpf.symbc.string.StringSymbolic;
 import gov.nasa.jpf.symbc.numeric.SymbolicConstraintsGeneral;
 //import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
 
 import gov.nasa.jpf.util.Pair;
 
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.Vector;
@@ -81,10 +93,17 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
     private String currentMethodName = "";
     
     private Map<String, SymbolicMethodSummary> methodsSymbolicSummaries;
+    
+    private List<TransformedSymField> transformedSymFields;
+    
+    // TODO change to full signature
+    private String symbolicMethodSimpleName;
 
-    public CustomSymbolicListener(Config conf, JPF jpf) {
+    public CustomSymbolicListener(Config conf, JPF jpf, String sMethodSimpleName) {
         jpf.addPublisherExtension(ConsolePublisher.class, this);
         methodsSymbolicSummaries = new HashMap<String, SymbolicMethodSummary>();
+        symbolicMethodSimpleName = sMethodSimpleName;
+        transformedSymFields = new ArrayList<>();
     }
 
     @Override
@@ -111,11 +130,17 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                 pa.solve(pc, solver);
             } else
                 pc.solve();
+            
+            
+            HeapChoiceGenerator heapCG = vm.getLastChoiceGeneratorOfType(HeapChoiceGenerator.class);
+            PathCondition heapPC = (heapCG==null ? null : heapCG.getCurrentPCheap());
 
             // TODO put the error details in the result/transformation of the method
             // TODO add static fields transformations
-            SymbolicPathSummary pathSummary = new SymbolicPathSummary(pc, null, null);
+            SymbolicPathSummary pathSummary = new SymbolicPathSummary(pc, heapPC, null, null, null);
             SymbolicMethodSummary symbolicMethodSummary = methodsSymbolicSummaries.get(currentMethodName);
+            
+            
             
             // TODO add the following, even though it might not be possible for such case to happen
             //if(symbolicMethodSummary == null) {
@@ -127,6 +152,90 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
         }
     }
 
+    
+    @Override
+    public void executeInstruction(VM vm, ThreadInfo currentThread, Instruction instructionToExecute) {
+    	if (!vm.getSystemState().isIgnored()) {
+    		Instruction insn = instructionToExecute;
+    		
+    		// Identify transformed fields
+    		if(insn instanceof PUTFIELD || insn instanceof PUTSTATIC) {
+            	MethodInfo mi = insn.getMethodInfo();
+                ClassInfo ci = mi.getClassInfo();
+                
+                if (null != ci) {
+                    String className = ci.getName();
+                    String methodName = mi.getName();
+                    String longName = mi.getLongName();
+                    int numberOfArgs = mi.getNumberOfArguments();
+                    
+                    
+                	
+                	//System.out.println("FIELD: " + fieldInfo + "\t" + methodName + "\t" 
+                	//+ BytecodeUtils.isMethodSymbolic(conf, mi.getFullName(), numberOfArgs, null));
+                    
+                    if(methodName.equals(symbolicMethodSimpleName)) {
+                    	
+                    	FieldInfo fieldInfo = ((WriteInstruction) insn).getFieldInfo();
+                    	
+                    	ClassInfo fieldClassInfo = fieldInfo.getClassInfo();
+                    	
+                    	ElementInfo fieldOwner = null;
+                    	
+                    	if(insn instanceof PUTFIELD) {
+                    		StackFrame frame = currentThread.getModifiableTopFrame();
+                    		int objRef = frame.peek(((PUTFIELD) insn).getFieldSize());
+                    		
+                    		if (objRef != MJIEnv.NULL) {
+                    			fieldOwner = currentThread.getModifiableElementInfo(objRef);
+                    		} 
+
+                    	} else {
+                    		fieldOwner = fieldClassInfo.getModifiableStaticElementInfo();
+                    	}
+                    	
+                    	
+                    	if(fieldOwner != null) {
+                    		Object attr = fieldOwner.getFieldAttr(fieldInfo);
+                    		
+                    		if(attr instanceof SymbolicInteger ||
+                    		   attr instanceof SymbolicReal ||
+                    		   attr instanceof StringSymbolic) {
+                    			
+                    			// Record: The symbolic var, owning object, field info
+                    			
+                    			String fieldName = ((Expression)attr).stringPC();
+                    			
+                    			boolean found = transformedSymFields.stream()
+                    			.anyMatch(field -> field.getFieldName().equals(fieldName));
+                    			
+                    			if(!found) {
+                    				transformedSymFields.add(new TransformedSymField((Expression)attr, fieldOwner, fieldInfo));
+                    			}
+                    			
+                    		}
+                    	}
+                
+                    }
+
+                }
+            } else if(insn instanceof GETSTATIC) {
+            	MethodInfo mi = insn.getMethodInfo();
+                ClassInfo ci = mi.getClassInfo();
+                
+                if (null != ci) {
+                    String className = ci.getName();
+                    String methodName = mi.getName();
+                    
+                    if(methodName.equals(symbolicMethodSimpleName)) {
+                    	System.out.println("GETSTATIC\t" + insn);
+                    }
+                }
+                
+            }
+    	}
+    }
+    
     @Override
     public void instructionExecuted(VM vm, ThreadInfo currentThread, Instruction nextInstruction,
             Instruction executedInstruction) {
@@ -138,7 +247,17 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
             ThreadInfo ti = currentThread;
             Config conf = vm.getConfig();
             
-            //System.out.println(ti.isFirstStepInsn() + "\t" + insn);
+            
+            
+            
+            /*MethodInfo mei = insn.getMethodInfo();
+            String meName = mei.getName();
+            
+            if(meName.equals(symbolicMethodSimpleName)) {
+            	System.out.println(ti.getExecutedInstructions() + "\t" + insn + "\t" + ti.isFirstStepInsn());
+            }*/
+            
+            //System.out.println();
 
             if (insn instanceof JVMInvokeInstruction) {
                 JVMInvokeInstruction md = (JVMInvokeInstruction) insn;
@@ -263,9 +382,10 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             }
                             
                             
+                            HeapChoiceGenerator heapCG = vm.getLastChoiceGeneratorOfType(HeapChoiceGenerator.class);
+                            PathCondition heapPC = (heapCG==null ? null : heapCG.getCurrentPCheap());
                             
-                           
-
+                            
                             String returnString = "";
 
                             Expression result = null;
@@ -366,24 +486,97 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             	if(fieldVal instanceof Expression) {
                             		String fieldName = fieldInfo.getName();
                             		
+                            		//System.out.println("FIELD O: " + fieldInfo);
+                            		
                             		Pair<String, Expression> fieldNameTrans = new Pair<>(fieldName, (Expression) fieldVal);
                             		
                             		sFieldsTransforms.add(fieldNameTrans);
                             	} 
                             }
                             
-
-                            SymbolicPathSummary pathSummary = new SymbolicPathSummary(pc, result, sFieldsTransforms);
+                            Vector<Pair<String, Expression>> iFieldsTransforms = new Vector<Pair<String, Expression>>();
+                            
+                            // TODO instance fields transformations
+                            
+                            //System.out.println(heapPC);
+                            //System.out.println("======");
+                            
+                            SymbolicPathSummary pathSummary = new SymbolicPathSummary(pc, heapPC, result, sFieldsTransforms, iFieldsTransforms);
                             SymbolicMethodSummary symbolicMethodSummary = methodsSymbolicSummaries.get(longName);
                             
                             if(!symbolicMethodSummary.containsPathSummary(pathSummary)) {
                             	symbolicMethodSummary.addPathSummary(pathSummary);
                             }
+                                
+                            
                             
                         }
                     }
                 }
-            }
+            } /*else if(insn instanceof GETFIELD || insn instanceof GETSTATIC) {
+            	MethodInfo mi = insn.getMethodInfo();
+                ClassInfo ci = mi.getClassInfo();
+                
+                
+                if (null != ci) {
+                	String className = ci.getName();
+                    int numberOfArgs = mi.getNumberOfArguments();
+                    String methodName = mi.getName();
+
+                    	if(methodName.equals(symbolicMethodSimpleName)) {
+                    		System.out.println(ti.getExecutedInstructions() + "\t" +insn);
+                    		
+                    		ChoiceGenerator heapCG = ti.getVM().getSystemState()
+                    				.getLastChoiceGeneratorOfType(HeapChoiceGenerator.class);
+                    		
+                    		if(heapCG != null && heapCG instanceof HeapChoiceGenerator) {
+                    			SymbolicInputHeap symInputHeap = ((HeapChoiceGenerator) heapCG).getCurrentSymInputHeap();
+                    			
+                    			if(symInputHeap != null) {
+                        			System.out.println("HEAP: " + symInputHeap + "\n");
+                        		}
+                    		}
+                    		
+                    		
+                    		
+                    		
+                    	}
+                	
+                }
+            }*/
+            
+            /*else if(insn instanceof PUTFIELD || insn instanceof PUTSTATIC) {
+            	MethodInfo mi = insn.getMethodInfo();
+                ClassInfo ci = mi.getClassInfo();
+                
+                if (null != ci) {
+      
+                    String className = ci.getName();
+                    String methodName = mi.getName();
+                    String longName = mi.getLongName();
+                    int numberOfArgs = mi.getNumberOfArguments();
+                    
+                    
+
+                    if(methodName.equals(symbolicMethodSimpleName)) {
+                    	
+                    	FieldInfo fieldInfo = ((WriteInstruction) insn).getFieldInfo();
+                    	
+                    	ClassInfo fieldClassInfo = fieldInfo.getClassInfo();
+                    	
+                    	ElementInfo fieldOwner = fieldClassInfo.getModifiableStaticElementInfo();
+                    	
+                    	Object attr = fieldOwner.getFieldAttr(fieldInfo);
+                    	
+                    	System.out.println("PUT\t" + insn + "\tFIELD: " + attr + "\n");
+               
+                    }
+                	
+     
+                }
+            	
+            	
+            }*/
         }
     }
     

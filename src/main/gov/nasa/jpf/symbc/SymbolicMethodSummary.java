@@ -38,17 +38,23 @@ public class SymbolicMethodSummary {
     	String summaryStr = "Method name: " + methodInfo.getLongName() + "\n";
     	for(SymbolicPathSummary pathSummary : pathsSummaries) {
     		PathCondition pathCondition = pathSummary.getCondition();
+    		PathCondition heapPathCondition = pathSummary.getHeapCondition();
     		Expression retTransformation = pathSummary.getReturnTransformation();
     		Vector<Pair<String, Expression>> sFieldsTransformations = pathSummary.getSFieldsTransformations();
     		
     		String sFieldsSummaries = "";
     		
-    		for(Pair<String, Expression> fieldTrans : sFieldsTransformations) {
-    			sFieldsSummaries += "\n\t" + fieldTrans._1 + ": " + fieldTrans._2;
+    		if(sFieldsTransformations != null) {
+    			for(Pair<String, Expression> fieldTrans : sFieldsTransformations) {
+        			sFieldsSummaries += "\n\t" + fieldTrans._1 + ": " + fieldTrans._2;
+        		}
     		}
     		
-    		summaryStr += "Path condition: \n" 
-    					+ pathCondition 
+    		
+    		summaryStr += "\nPath Condition: \n" 
+    					+ pathCondition
+    					+ "\nHeap Condition: \n"
+    					+ heapPathCondition
     					+ "\nReturn Transformation: \n" 
     					+ retTransformation
     					+ "\nStatic Fields Transformations:"
