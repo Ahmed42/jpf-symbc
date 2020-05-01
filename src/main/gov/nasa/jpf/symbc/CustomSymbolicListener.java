@@ -43,6 +43,7 @@ import gov.nasa.jpf.jvm.bytecode.IRETURN;
 import gov.nasa.jpf.jvm.bytecode.JVMInvokeInstruction;
 import gov.nasa.jpf.jvm.bytecode.LRETURN;
 import gov.nasa.jpf.jvm.bytecode.JVMReturnInstruction;
+import gov.nasa.jpf.jvm.bytecode.JVMStaticFieldInstruction;
 import gov.nasa.jpf.report.ConsolePublisher;
 import gov.nasa.jpf.report.Publisher;
 import gov.nasa.jpf.report.PublisherExtension;
@@ -51,6 +52,7 @@ import gov.nasa.jpf.symbc.bytecode.BytecodeUtils;
 import gov.nasa.jpf.symbc.bytecode.INVOKESTATIC;
 import gov.nasa.jpf.symbc.concolic.PCAnalyzer;
 import gov.nasa.jpf.symbc.heap.HeapChoiceGenerator;
+import gov.nasa.jpf.symbc.heap.Helper;
 import gov.nasa.jpf.symbc.heap.SymbolicInputHeap;
 import gov.nasa.jpf.jvm.bytecode.PUTSTATIC;
 import gov.nasa.jpf.jvm.bytecode.PUTFIELD;
@@ -94,7 +96,9 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
     
     private Map<String, SymbolicMethodSummary> methodsSymbolicSummaries;
     
-    private List<TransformedSymField> transformedSymFields;
+    private List<SymField> transformedSymFields;
+    
+    private List<SymField> externalStaticFields;
     
     // TODO change to full signature
     private String symbolicMethodSimpleName;
@@ -104,6 +108,7 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
         methodsSymbolicSummaries = new HashMap<String, SymbolicMethodSummary>();
         symbolicMethodSimpleName = sMethodSimpleName;
         transformedSymFields = new ArrayList<>();
+        externalStaticFields = new ArrayList<>();
     }
 
     @Override
@@ -158,21 +163,54 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
     	if (!vm.getSystemState().isIgnored()) {
     		Instruction insn = instructionToExecute;
     		
+    		
+    		// Insert symbolic vars for static fields of other classes
+    		if(insn instanceof PUTSTATIC || insn instanceof GETSTATIC) {
+            	MethodInfo mi = insn.getMethodInfo();
+                ClassInfo ci = mi.getClassInfo();
+                
+                if (null != ci) {
+                    String methodName = mi.getName();
+                    
+                    //System.out.println("GET\t" + insn);
+                    if(methodName.equals(symbolicMethodSimpleName)) {
+                    	FieldInfo fieldInfo = ((JVMStaticFieldInstruction) insn).getFieldInfo();
+                    	
+                    	ClassInfo fieldClassInfo = fieldInfo.getClassInfo();
+                    	
+                    	// Static field of a different class
+                    	if(!fieldClassInfo.equals(ci)) {
+                    		
+                    		if (!mi.isClinit(fieldClassInfo)) {
+                    			fieldClassInfo.initializeClass(currentThread);
+                    		}
+                    		
+                    		String fieldName = fieldClassInfo.getName() + "." +  fieldInfo.getName();
+                    		
+                    		boolean found = externalStaticFields.stream()
+                        			.anyMatch(field -> field.getFieldName().equals(fieldName));
+                    		
+                    		if(!found) {
+                    			ElementInfo fieldOwner = fieldClassInfo.getModifiableStaticElementInfo();
+                    			
+                    			Expression fieldSymVar = Helper.initializeStaticField(fieldInfo, fieldClassInfo, currentThread, "");
+                    			
+                    			SymField externalStaticField = new SymField(fieldSymVar, fieldOwner, fieldInfo, currentThread);
+                    			externalStaticFields.add(externalStaticField);
+                    		}
+                    	}
+                    }
+                }
+                
+            }
+    		
     		// Identify transformed fields
     		if(insn instanceof PUTFIELD || insn instanceof PUTSTATIC) {
             	MethodInfo mi = insn.getMethodInfo();
                 ClassInfo ci = mi.getClassInfo();
                 
                 if (null != ci) {
-                    String className = ci.getName();
                     String methodName = mi.getName();
-                    String longName = mi.getLongName();
-                    int numberOfArgs = mi.getNumberOfArguments();
-                    
-                    
-                	
-                	//System.out.println("FIELD: " + fieldInfo + "\t" + methodName + "\t" 
-                	//+ BytecodeUtils.isMethodSymbolic(conf, mi.getFullName(), numberOfArgs, null));
                     
                     if(methodName.equals(symbolicMethodSimpleName)) {
                     	
@@ -182,16 +220,23 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                     	
                     	ElementInfo fieldOwner = null;
                     	
+                    	int objRef = -1;
                     	if(insn instanceof PUTFIELD) {
-                    		StackFrame frame = currentThread.getModifiableTopFrame();
-                    		int objRef = frame.peek(((PUTFIELD) insn).getFieldSize());
+                    		StackFrame frame = currentThread.getTopFrame();
+                    		//StackFrame frame = currentThread.getModifiableTopFrame();
+                    		objRef = frame.peek(((PUTFIELD) insn).getFieldSize());
                     		
                     		if (objRef != MJIEnv.NULL) {
-                    			fieldOwner = currentThread.getModifiableElementInfo(objRef);
+                    			fieldOwner = currentThread.getElementInfo(objRef);
                     		} 
 
                     	} else {
-                    		fieldOwner = fieldClassInfo.getModifiableStaticElementInfo();
+                    		// This seems to work. 
+                    		// Something related to class initialization.
+                    		if (!mi.isClinit(fieldClassInfo)) {
+                    			fieldClassInfo.initializeClass(currentThread);
+                    		}
+                    		fieldOwner = fieldClassInfo.getStaticElementInfo();
                     	}
                     	
                     	
@@ -210,29 +255,40 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                     			.anyMatch(field -> field.getFieldName().equals(fieldName));
                     			
                     			if(!found) {
-                    				transformedSymFields.add(new TransformedSymField((Expression)attr, fieldOwner, fieldInfo));
+                    				SymField changedField = new SymField((Expression)attr, fieldOwner, fieldInfo, currentThread);
+                    				transformedSymFields.add(changedField);
+                    				//System.out.println(insn + "\t=+=+=\t" + changedField);
                     			}
                     			
                     		}
                     	}
+                    	
+                    	
                 
                     }
 
                 }
-            } else if(insn instanceof GETSTATIC) {
-            	MethodInfo mi = insn.getMethodInfo();
+            } 
+    		
+    		if (insn instanceof JVMReturnInstruction) {
+    			MethodInfo mi = insn.getMethodInfo();
                 ClassInfo ci = mi.getClassInfo();
                 
                 if (null != ci) {
-                    String className = ci.getName();
                     String methodName = mi.getName();
-                    
+    			
                     if(methodName.equals(symbolicMethodSimpleName)) {
-                    	System.out.println("GETSTATIC\t" + insn);
-                    }
-                }
+    					System.out.println("Fields Transformations:");
                 
-            }
+                		for(SymField field : transformedSymFields) {
+                			System.out.println("\t" + field);
+                		}
+                
+    				}
+    			
+                }
+        		
+        	}
     	}
     }
     
@@ -508,6 +564,7 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             	symbolicMethodSummary.addPathSummary(pathSummary);
                             }
                                 
+                            
                             
                             
                         }
