@@ -7,11 +7,13 @@ import gov.nasa.jpf.vm.ThreadInfo;
 import gov.nasa.jpf.symbc.numeric.Expression;
 
 public class SymField {
-	private Expression symVar; // No other common ancestor to symbolic values exists
+	private Expression symVar; // No other common ancestor to terminal symbolic values (consts and vars) exists
 	private ElementInfo fieldOwner;
 	//private int objectRef;
-	private FieldInfo fieldInfo;
+	protected FieldInfo fieldInfo;
 	private ThreadInfo currentThread;
+	
+	
 	
 	public SymField(Expression sVar, ElementInfo owningObj, FieldInfo fInfo, ThreadInfo curThread) {
 		symVar = sVar;
@@ -20,6 +22,8 @@ public class SymField {
 		fieldInfo = fInfo;
 		currentThread = curThread;
 	}
+	
+	
 	
 	public Object getFieldVal() {
 		/*ElementInfo fieldOwner;
@@ -69,6 +73,8 @@ public class SymField {
 		if(isStatic()) {
 			return fieldInfo.getClassInfo().getName() + "." +  fieldInfo.getName();
 		} else {
+			// Does not work in the case a reference has been initialized to an existing object
+			// (No symbol for it was created)
 			return symVar.stringPC();
 		}
 		 
