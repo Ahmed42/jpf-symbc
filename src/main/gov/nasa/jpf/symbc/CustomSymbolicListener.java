@@ -42,6 +42,7 @@ import gov.nasa.jpf.jvm.bytecode.FRETURN;
 import gov.nasa.jpf.jvm.bytecode.IRETURN;
 import gov.nasa.jpf.jvm.bytecode.JVMInvokeInstruction;
 import gov.nasa.jpf.jvm.bytecode.LRETURN;
+import gov.nasa.jpf.jvm.bytecode.RETURN;
 import gov.nasa.jpf.jvm.bytecode.JVMReturnInstruction;
 import gov.nasa.jpf.jvm.bytecode.JVMStaticFieldInstruction;
 import gov.nasa.jpf.report.ConsolePublisher;
@@ -509,14 +510,14 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                                 returnString = "Return Value: --";
                             
                             
-                            Constraint returnTransformation;
+                            Constraint returnTransformation = null;
                             String returnVarName = "RET"; // TODO append hash of method name to ensure that it doesn't collide with an existing var
                             Expression retOutVar;
                             
                             if(insn instanceof FRETURN || insn instanceof DRETURN) {
                             	retOutVar = new SymbolicReal(returnVarName, MinMax.getVarMinDouble(returnVarName), MinMax.getVarMaxDouble(returnVarName));
                                 returnTransformation = new RealConstraint((RealExpression) retOutVar, Comparator.EQ, (RealExpression) result);
-                            } else {
+                            } else if (!(insn instanceof RETURN)) {
                             	long min, max;
                             	
                             	if(insn instanceof LRETURN) {
@@ -529,6 +530,9 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             	
                             	retOutVar = new SymbolicInteger(returnVarName, min, max);
                                 returnTransformation = new LinearIntegerConstraint((IntegerExpression) retOutVar, Comparator.EQ, (IntegerExpression) result);
+                            } else {
+                            	// We add a trivially true constraint
+                            	returnTransformation = new LinearIntegerConstraint(new IntegerConstant(1), Comparator.EQ, new IntegerConstant(1));
                             }
                             
                             // pc.solve();
@@ -584,13 +588,13 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             
     						PathCondition transformations = new PathCondition();
     						
+    						
     						transformations.prependAllConjuncts(returnTransformation);
     						
     						for(TransformedSymField transformedField : transformedSymFields) {
-    							transformations.appendAllConjuncts(transformedField.getTransformationConstraint());
+    							transformations.prependAllConjuncts(transformedField.getTransformationConstraint());
     						}
-    						
-    						
+    	
     						
                             SymbolicPathSummary pathSummary = 
                             		new SymbolicPathSummary(pc, heapPC, transformations);
