@@ -1062,7 +1062,7 @@ getExpression(stoex.value)), newae));
    * @param pbtosolve ProblemGeneral
    * @return the merged ProblemGener al object; NULL if problem is unsat
    */
-  public static ProblemGeneral parse(PathCondition pc, ProblemGeneral pbtosolve) {
+  public static ProblemGeneral parse_old(PathCondition pc, ProblemGeneral pbtosolve) {
     pb=pbtosolve;
 
 
@@ -1127,7 +1127,7 @@ getExpression(stoex.value)), newae));
         } else {
             throw new RuntimeException("## Error : Array constraints only handled by z3. Try specifying a z3 instance as symbolic.dp");
         }
-    }
+    } 
     else {
       //System.out.println("## Warning: Non Linear Integer Constraint (only coral or z3 can handle it)" + cRef);
       if(pb instanceof ProblemCoral || pb instanceof ProblemZ3|| pb instanceof ProblemZ3Optimize || pb instanceof ProblemZ3BitVector || pb instanceof ProblemZ3Incremental || pb instanceof ProblemZ3BitVectorIncremental)
@@ -1139,4 +1139,611 @@ getExpression(stoex.value)), newae));
     return constraintResult; //false -> not sat
 
   }
+
+
+
+
+
+
+  // =========================================================
+  
+  public static ProblemGeneral parse(PathCondition pc, ProblemGeneral pbtosolve) {
+	    pb=pbtosolve;
+	    
+
+	    symRealVar = new HashMap<SymbolicReal,Object>();
+	    symIntegerVar = new HashMap<SymbolicInteger,Object>();
+	    //result = null;
+	    tempVars = 0;
+
+	    Object dpConstraint = parseToDPConstraint(pc.header, pb);
+	    
+	    
+	    
+	    if(pb.isFalse(dpConstraint)) {
+	    	return null; // unsat
+	    } else {
+	    	pb.post(dpConstraint);
+	    }
+
+	    return pb;
+	  }
+  
+  public static Object parseToDPConstraint(Constraint constraint, ProblemGeneral pbtosolve) {
+	    pb=pbtosolve;
+	    
+	    //System.out.println("To parse: " + constraint);
+	    //symRealVar = new HashMap<SymbolicReal,Object>();
+	    //symIntegerVar = new HashMap<SymbolicInteger,Object>();
+	    //result = null;
+	    //tempVars = 0;
+
+	    //Constraint constraint = pc.header;
+	    Object dpConstraint = null;
+	    
+	    while (constraint != null) {
+	    	Object newDPConstraint = null;
+	    	if(constraint instanceof RealConstraint) {
+	    		newDPConstraint = buildDPRealConstraint((RealConstraint)constraint);
+	    	} else if(constraint instanceof LinearIntegerConstraint) {
+	    		newDPConstraint = buildDPLinearIntegerConstraint((LinearIntegerConstraint)constraint);
+	    	} else if(constraint instanceof MixedConstraint) {
+	    		newDPConstraint = buildDPMixedConstraint((MixedConstraint)constraint);
+	    	} else if(constraint instanceof ArrayConstraint) {
+	    		newDPConstraint = buildDPArrayConstraint((ArrayConstraint)constraint);
+	    	} else if(constraint instanceof RealArrayConstraint) {
+	    		newDPConstraint = buildDPRealArrayConstraint((RealArrayConstraint)constraint);
+	    	} else if(constraint instanceof LogicalGroupingConstraint) {
+	    		LogicalGroupingConstraint logicalGroupedConstraint = ((LogicalGroupingConstraint) constraint);
+	    		List<Constraint> groupedConstraints = logicalGroupedConstraint.getList();
+	    		
+	    		Object groupedDPConstraints = parseToDPConstraint(groupedConstraints.get(0), pb);
+	    		
+	    		for(int i = 1; i < groupedConstraints.size(); i++) {
+	    			Object subDPConstraint = parseToDPConstraint(groupedConstraints.get(i), pb);
+	    			
+	    			if(logicalGroupedConstraint.getOperator() == LogicalGroupingConstraint.Operator.AND) {
+	    				groupedDPConstraints = pb.and(groupedDPConstraints, subDPConstraint);
+	    				
+	    				if(pb.isFalse(groupedDPConstraints)) {
+	    					break;
+	    				}
+	    			} else { // OR operator case
+	    				try {
+	    				groupedDPConstraints = pb.or(groupedDPConstraints,  subDPConstraint);
+	    				} catch(Exception e) {
+	    					throw new RuntimeException(e);
+	    				}
+	    				if(pb.isTrue(groupedDPConstraints)) {
+	    					break;
+	    				}
+	    			}
+	    		}
+	    		
+	    		if(logicalGroupedConstraint.negated) {
+	    			groupedDPConstraints = pb.not(groupedDPConstraints);	
+	    		}
+	    		
+	    		newDPConstraint = groupedDPConstraints;
+	    	}
+	    	
+	    	if(pb.isFalse(newDPConstraint)) { // unsat
+	    		return newDPConstraint;
+	    	}
+	    	
+	    	if(dpConstraint == null) { // First iteration
+	    		dpConstraint = newDPConstraint;
+	    	} else {
+	    		dpConstraint = pb.and(dpConstraint, newDPConstraint);
+	    	}
+	    	
+	    	constraint = constraint.and;
+	    	//System.out.println("Parsed: " + dpConstraint); 
+	    }
+	    
+	    
+	    return dpConstraint;
+	  }
+  
+  
+  static public Object buildDPMixedConstraint(MixedConstraint cRef) {
+	  Comparator c_compRef = cRef.getComparator();
+	    RealExpression c_leftRef = (RealExpression)cRef.getLeft();
+	    IntegerExpression c_rightRef = (IntegerExpression)cRef.getRight();
+	    assert (c_compRef == Comparator.EQ);
+	    
+	    Object constraint = null;
+
+	    if (c_leftRef instanceof SymbolicReal && c_rightRef instanceof SymbolicInteger) {
+	      //pb.post(new MixedEqXY((RealVar)(getExpression(c_leftRef)),(IntDomainVar)(getExpression(c_rightRef))));
+	    	constraint = pb.mixed(getExpression(c_leftRef),getExpression(c_rightRef));
+	    }
+	    else if (c_leftRef instanceof SymbolicReal) { // c_rightRef is an IntegerExpression
+	      Object tmpi = pb.makeIntVar(c_rightRef + "_" + c_rightRef.hashCode(),(int)(((SymbolicReal)c_leftRef)._min), (int)(((SymbolicReal)c_leftRef)._max));
+	      if (c_rightRef instanceof IntegerConstant)
+	    	  constraint = pb.eq(((IntegerConstant)c_rightRef).value,tmpi);
+	      else
+	    	  constraint = pb.eq(getExpression(c_rightRef),tmpi);
+	      //pb.post(new MixedEqXY((RealVar)(getExpression(c_leftRef)),tmpi));
+	      constraint = pb.and(constraint, pb.mixed(getExpression(c_leftRef),tmpi));
+	    }
+	    else if (c_rightRef instanceof SymbolicInteger) { // c_leftRef is a RealExpression
+	      Object tmpr = pb.makeRealVar(c_leftRef + "_" + c_leftRef.hashCode(), ((SymbolicInteger)c_rightRef)._min, ((SymbolicInteger)c_rightRef)._max);
+	      if(c_leftRef instanceof RealConstant)
+	    	  constraint = pb.eq(tmpr, ((RealConstant)c_leftRef).value);
+	      else
+	    	  constraint = pb.eq(tmpr, getExpression(c_leftRef));
+	      //pb.post(new MixedEqXY(tmpr,(IntDomainVar)(getExpression(c_rightRef))));
+	      constraint = pb.and(constraint, pb.mixed(tmpr,getExpression(c_rightRef)));
+	    }
+	    else
+	      assert(false); // should not be reachable
+
+	    return constraint;
+  }
+  
+  static public Object buildDPRealConstraint(RealConstraint cRef) {
+	  Comparator c_compRef = cRef.getComparator();
+	    RealExpression c_leftRef = (RealExpression)cRef.getLeft();
+	    RealExpression c_rightRef = (RealExpression)cRef.getRight();
+	    
+	    Object dpConstraint = null;
+	    
+	    switch(c_compRef){
+	      case EQ:
+	        if (c_leftRef instanceof RealConstant && c_rightRef instanceof RealConstant) {
+	          if (!(((RealConstant) c_leftRef).value == ((RealConstant) c_rightRef).value))
+	            return pb.makeFalse();
+	          else
+	            return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof RealConstant) {
+	        	dpConstraint = pb.eq(((RealConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof RealConstant) {
+	        	dpConstraint = pb.eq(getExpression(c_leftRef),((RealConstant)c_rightRef).value);
+	        }
+	        else
+	        	dpConstraint = pb.eq(getExpression(c_leftRef),getExpression(c_rightRef));
+	        break;
+	      case NE:
+	        if (c_leftRef instanceof RealConstant && c_rightRef instanceof RealConstant) {
+	          if (!(((RealConstant) c_leftRef).value != ((RealConstant) c_rightRef).value))
+	        	  return pb.makeFalse();
+	          else
+	        	  return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof RealConstant) {
+	        	dpConstraint = pb.neq(((RealConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof RealConstant) {
+	        	dpConstraint = pb.neq(getExpression(c_leftRef),((RealConstant)c_rightRef).value);
+	        }
+	        else
+	        	dpConstraint = pb.neq(getExpression(c_leftRef),getExpression(c_rightRef));
+	        break;
+	      case LT:
+	        if (c_leftRef instanceof RealConstant && c_rightRef instanceof RealConstant) {
+	          if (!(((RealConstant) c_leftRef).value < ((RealConstant) c_rightRef).value))
+	        	  return pb.makeFalse();
+	          else
+	        	  return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof RealConstant) {
+	        	dpConstraint = pb.lt(((RealConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof RealConstant) {
+	        	dpConstraint = pb.lt(getExpression(c_leftRef),((RealConstant)c_rightRef).value);
+	        }
+	        else
+	        	dpConstraint = pb.lt(getExpression(c_leftRef),getExpression(c_rightRef));
+	        break;
+	      case GE:
+	        if (c_leftRef instanceof RealConstant && c_rightRef instanceof RealConstant) {
+	          if (!(((RealConstant) c_leftRef).value >= ((RealConstant) c_rightRef).value))
+	        	  return pb.makeFalse();
+	          else
+	        	  return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof RealConstant) {
+	        	dpConstraint = pb.geq(((RealConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof RealConstant) {
+	        	dpConstraint = pb.geq(getExpression(c_leftRef),((RealConstant)c_rightRef).value);
+	        }
+	        else
+	        	dpConstraint = pb.geq(getExpression(c_leftRef),getExpression(c_rightRef));
+	        break;
+	      case LE:
+	        if (c_leftRef instanceof RealConstant && c_rightRef instanceof RealConstant) {
+	          if (!(((RealConstant) c_leftRef).value <= ((RealConstant) c_rightRef).value))
+	        	  return pb.makeFalse();
+	          else
+	        	  return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof RealConstant) {
+	        	dpConstraint = pb.leq(((RealConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof RealConstant) {
+	        	dpConstraint = pb.leq(getExpression(c_leftRef),((RealConstant)c_rightRef).value);
+	        }
+	        else
+	        	dpConstraint = pb.leq(getExpression(c_leftRef),getExpression(c_rightRef));
+	        break;
+	      case GT:
+	        if (c_leftRef instanceof RealConstant && c_rightRef instanceof RealConstant) {
+	          if (!(((RealConstant) c_leftRef).value > ((RealConstant) c_rightRef).value))
+	        	  return pb.makeFalse();
+	          else
+	        	  return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof RealConstant) {
+	        	dpConstraint = pb.gt(((RealConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof RealConstant) {
+	        	dpConstraint = pb.gt(getExpression(c_leftRef),((RealConstant)c_rightRef).value);
+	        }
+	        else
+	        	dpConstraint = pb.gt(getExpression(c_leftRef),getExpression(c_rightRef));
+	        break;
+	    }
+	    return dpConstraint;
+  }
+  
+  static public Object buildDPLinearIntegerConstraint(LinearIntegerConstraint cRef) {
+	  Comparator c_compRef = cRef.getComparator();
+
+	    IntegerExpression c_leftRef = (IntegerExpression)cRef.getLeft();
+	    IntegerExpression c_rightRef = (IntegerExpression)cRef.getRight();
+
+	    switch(c_compRef){
+	      case EQ:
+	        if (c_leftRef instanceof IntegerConstant && c_rightRef instanceof IntegerConstant) {
+	          if (!(((IntegerConstant) c_leftRef).value == ((IntegerConstant) c_rightRef).value))
+	        	  return pb.makeFalse();
+	          else
+	        	  return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof IntegerConstant) {
+	          return pb.eq(((IntegerConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof IntegerConstant) {
+	          return pb.eq(getExpression(c_leftRef),((IntegerConstant)c_rightRef).value);
+	        }
+	        else
+	          return pb.eq(getExpression(c_leftRef),getExpression(c_rightRef));
+
+	      case NE:
+	        if (c_leftRef instanceof IntegerConstant && c_rightRef instanceof IntegerConstant) {
+	          if (!(((IntegerConstant) c_leftRef).value != ((IntegerConstant) c_rightRef).value))
+	        	  return pb.makeFalse();
+	          else
+	        	  return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof IntegerConstant) {
+	          return pb.neq(((IntegerConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof IntegerConstant) {
+	          return pb.neq(getExpression(c_leftRef),((IntegerConstant)c_rightRef).value);
+	        }
+	        else
+	        	return pb.neq(getExpression(c_leftRef),getExpression(c_rightRef));
+
+	      case LT:
+	        if (c_leftRef instanceof IntegerConstant && c_rightRef instanceof IntegerConstant) {
+	          if (!(((IntegerConstant) c_leftRef).value < ((IntegerConstant) c_rightRef).value))
+	        	  return pb.makeFalse();
+	          else
+	        	  return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof IntegerConstant) {
+	        	return pb.lt(((IntegerConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof IntegerConstant) {
+	        	return pb.lt(getExpression(c_leftRef),((IntegerConstant)c_rightRef).value);
+	        }
+	        else
+	        	return pb.lt(getExpression(c_leftRef),getExpression(c_rightRef));
+
+	      case GE:
+	        if (c_leftRef instanceof IntegerConstant && c_rightRef instanceof IntegerConstant) {
+	          if (!(((IntegerConstant) c_leftRef).value >= ((IntegerConstant) c_rightRef).value))
+	        	  return pb.makeFalse();
+	          else
+	        	  return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof IntegerConstant) {
+	        	return pb.geq(((IntegerConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof IntegerConstant) {
+	        	return pb.geq(getExpression(c_leftRef),((IntegerConstant)c_rightRef).value);
+	        }
+	        else
+	        	return pb.geq(getExpression(c_leftRef),getExpression(c_rightRef));
+
+	      case LE:
+	        if (c_leftRef instanceof IntegerConstant && c_rightRef instanceof IntegerConstant) {
+	          if (!(((IntegerConstant) c_leftRef).value <= ((IntegerConstant) c_rightRef).value))
+	        	  return pb.makeFalse();
+	          else
+	        	  return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof IntegerConstant) {
+	        	return pb.leq(((IntegerConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof IntegerConstant) {
+	        	return pb.leq(getExpression(c_leftRef),((IntegerConstant)c_rightRef).value);
+	        }
+	        else
+	        	return pb.leq(getExpression(c_leftRef),getExpression(c_rightRef));
+
+	      case GT:
+	        if (c_leftRef instanceof IntegerConstant && c_rightRef instanceof IntegerConstant) {
+	          if (!(((IntegerConstant) c_leftRef).value > ((IntegerConstant) c_rightRef).value))
+	        	  return pb.makeFalse();
+	          else
+	        	  return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof IntegerConstant) {
+	        	return pb.gt(((IntegerConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof IntegerConstant) {
+	        	return pb.gt(getExpression(c_leftRef),((IntegerConstant)c_rightRef).value);
+	        }
+	        else
+	        	return pb.gt(getExpression(c_leftRef),getExpression(c_rightRef));
+
+	    }
+	    // We shouldn't arrive here
+	    return null;
+  }
+  
+  static public Object buildDPNonLinearIntegerConstraint(NonLinearIntegerConstraint cRef) {
+	  Comparator c_compRef = cRef.getComparator();
+
+	    IntegerExpression c_leftRef = (IntegerExpression)cRef.getLeft();
+	    IntegerExpression c_rightRef = (IntegerExpression)cRef.getRight();
+
+	    switch(c_compRef){
+	      case EQ:
+	        if (c_leftRef instanceof IntegerConstant && c_rightRef instanceof IntegerConstant) {
+	          if (!(((IntegerConstant) c_leftRef).value == ((IntegerConstant) c_rightRef).value))
+	            return pb.makeFalse();
+	          else
+	            return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof IntegerConstant) {
+	          return pb.eq(((IntegerConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof IntegerConstant) {
+	        	return pb.eq(getExpression(c_leftRef),((IntegerConstant)c_rightRef).value);
+	        }
+	        else
+	        	return pb.eq(getExpression(c_leftRef),getExpression(c_rightRef));
+	        
+	      case NE:
+	        if (c_leftRef instanceof IntegerConstant && c_rightRef instanceof IntegerConstant) {
+	          if (!(((IntegerConstant) c_leftRef).value != ((IntegerConstant) c_rightRef).value))
+	            return pb.makeFalse();
+	          else
+	            return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof IntegerConstant) {
+	        	return pb.neq(((IntegerConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof IntegerConstant) {
+	        	return pb.neq(getExpression(c_leftRef),((IntegerConstant)c_rightRef).value);
+	        }
+	        else
+	        	return pb.neq(getExpression(c_leftRef),getExpression(c_rightRef));
+	        
+	      case LT:
+	        if (c_leftRef instanceof IntegerConstant && c_rightRef instanceof IntegerConstant) {
+	          if (!(((IntegerConstant) c_leftRef).value < ((IntegerConstant) c_rightRef).value))
+	            return pb.makeFalse();
+	          else
+	            return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof IntegerConstant) {
+	        	return pb.lt(((IntegerConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof IntegerConstant) {
+	        	return pb.lt(getExpression(c_leftRef),((IntegerConstant)c_rightRef).value);
+	        }
+	        else
+	        	return pb.lt(getExpression(c_leftRef),getExpression(c_rightRef));
+	        
+	      case GE:
+	        if (c_leftRef instanceof IntegerConstant && c_rightRef instanceof IntegerConstant) {
+	          if (!(((IntegerConstant) c_leftRef).value >= ((IntegerConstant) c_rightRef).value))
+	            return pb.makeFalse();
+	          else
+	            return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof IntegerConstant) {
+	        	return pb.geq(((IntegerConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof IntegerConstant) {
+	        	return pb.geq(getExpression(c_leftRef),((IntegerConstant)c_rightRef).value);
+	        }
+	        else
+	        	return pb.geq(getExpression(c_leftRef),getExpression(c_rightRef));
+	        
+	      case LE:
+	        if (c_leftRef instanceof IntegerConstant && c_rightRef instanceof IntegerConstant) {
+	          if (!(((IntegerConstant) c_leftRef).value <= ((IntegerConstant) c_rightRef).value))
+	            return pb.makeFalse();
+	          else
+	            return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof IntegerConstant) {
+	        	return pb.leq(((IntegerConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof IntegerConstant) {
+	        	return pb.leq(getExpression(c_leftRef),((IntegerConstant)c_rightRef).value);
+	        }
+	        else
+	        	return pb.leq(getExpression(c_leftRef),getExpression(c_rightRef));
+	        
+	      case GT:
+	        if (c_leftRef instanceof IntegerConstant && c_rightRef instanceof IntegerConstant) {
+	          if (!(((IntegerConstant) c_leftRef).value > ((IntegerConstant) c_rightRef).value))
+	            return pb.makeFalse();
+	          else
+	            return pb.makeTrue();
+	        }
+	        else if (c_leftRef instanceof IntegerConstant) {
+	        	return pb.gt(((IntegerConstant)c_leftRef).value,getExpression(c_rightRef));
+	        }
+	        else if (c_rightRef instanceof IntegerConstant) {
+	        	return pb.gt(getExpression(c_leftRef),((IntegerConstant)c_rightRef).value);
+	        }
+	        else
+	        	return pb.gt(getExpression(c_leftRef),getExpression(c_rightRef));
+	        
+	    }
+	    return null;
+  }
+  
+  static public Object buildDPArrayConstraint(ArrayConstraint cRef) {
+	  Comparator c_compRef = cRef.getComparator();
+
+	    SelectExpression selex = null;
+	        StoreExpression stoex = null;
+	        IntegerExpression sel_right = null;
+	        ArrayExpression sto_right = null;
+	        InitExpression initex = null;
+	        if (cRef.getLeft() instanceof SelectExpression) {
+	          selex = (SelectExpression)cRef.getLeft();
+	          sel_right = (IntegerExpression)cRef.getRight();
+	        } else if (cRef.getLeft() instanceof StoreExpression) {
+	           stoex = (StoreExpression)cRef.getLeft();
+	           sto_right = (ArrayExpression)cRef.getRight();
+	        } else if (cRef.getLeft() instanceof InitExpression) {
+	           initex = (InitExpression)cRef.getLeft();
+	        } else {
+	            throw new RuntimeException("ArrayConstraint is not select or store or init");
+	        }
+
+	        switch(c_compRef) {
+	        case EQ:
+
+	            if (selex != null && sel_right != null) {
+	                // The array constraint is a select
+	                ArrayExpression ae = (ArrayExpression) selex.arrayExpression;
+	                return pb.eq(pb.select(pb.makeArrayVar(ae.getName()),
+	                  (selex.indexExpression instanceof IntegerConstant) ? pb.makeIntConst(((IntegerConstant)selex.indexExpression).value) :
+	getExpression(selex.indexExpression)),
+	                  (sel_right instanceof IntegerConstant) ? pb.makeIntConst(((IntegerConstant)sel_right).value) :
+	getExpression(sel_right));
+	                
+	            }
+	            if (stoex != null && sto_right != null) {
+	                // The array constraint is a store
+	                ArrayExpression ae = (ArrayExpression) stoex.arrayExpression;
+	                ArrayExpression newae = (ArrayExpression) sto_right;
+	                return pb.eq(pb.store(pb.makeArrayVar(ae.getName()),
+	                  (stoex.indexExpression instanceof IntegerConstant) ? pb.makeIntConst(((IntegerConstant)stoex.indexExpression).value) :
+	getExpression(stoex.indexExpression),
+	                  (stoex.value instanceof IntegerConstant) ? pb.makeIntConst(((IntegerConstant)stoex.value).value) :
+	getExpression(stoex.value)),
+	                   pb.makeArrayVar(newae.getName()));
+	                
+	            }
+	            if (initex != null) {
+	              // The array constraint is an initialization
+	              ArrayExpression ae = (ArrayExpression) initex.arrayExpression;
+	              IntegerConstant init_value = new IntegerConstant(initex.isRef? -1 : 0);
+	              return pb.init_array(pb.makeArrayVar(ae.getName()), pb.makeIntConst(init_value.value));
+	              
+	            }
+	            throw new RuntimeException("ArrayConstraint is not correct select or store or init");
+	        case NE:
+	            if (selex != null && sel_right != null) {
+	                // The array constraint is a select
+	                ArrayExpression ae = (ArrayExpression) selex.arrayExpression;
+	                return pb.neq(pb.select(pb.makeArrayVar(ae.getName()), getExpression(selex.indexExpression)),
+	getExpression(sel_right));
+	                
+	            }
+	            if (stoex != null && sto_right != null) {
+	                // The array constraint is a store
+	                ArrayExpression ae = (ArrayExpression)stoex.arrayExpression;
+	                ArrayExpression newae = (ArrayExpression) sto_right;
+	                return pb.neq(pb.store(pb.makeArrayVar(ae.getName()), getExpression(stoex.indexExpression),
+	getExpression(stoex.value)), newae);
+	                
+	            }
+	            throw new RuntimeException("ArrayConstraint is not correct select or store");
+	        default:
+	            throw new RuntimeException("ArrayConstraint is not select or store");
+	        }
+  }
+  
+  static public Object buildDPRealArrayConstraint(RealArrayConstraint cRef) {
+	  final Comparator c_compRef = cRef.getComparator();
+
+
+      SelectExpression selex = null;
+      RealStoreExpression stoex = null;
+      RealExpression sel_right = null;
+      ArrayExpression sto_right = null;
+      if (cRef.getLeft() instanceof SelectExpression) {
+           selex = (SelectExpression)cRef.getLeft();
+           sel_right = (RealExpression)cRef.getRight();
+      } else if (cRef.getLeft() instanceof RealStoreExpression) {
+         stoex = (RealStoreExpression)cRef.getLeft();
+         sto_right = (ArrayExpression)cRef.getRight();
+      } else {
+         throw new RuntimeException("ArrayConstraint is not select or store");
+      }
+
+      switch(c_compRef) {
+      case EQ:
+
+          if (selex != null && sel_right != null) {
+              // The array constraint is a select
+              ArrayExpression ae = selex.arrayExpression;
+              return pb.eq(pb.realSelect(pb.makeRealArrayVar(ae.getName()),
+                (selex.indexExpression instanceof IntegerConstant) ? pb.makeIntConst(((IntegerConstant)selex.indexExpression).value) :
+getExpression(selex.indexExpression)),
+                (sel_right instanceof RealConstant) ? pb.makeRealConst(((RealConstant)sel_right).value) :
+getExpression(sel_right));
+               
+          }
+          if (stoex != null && sto_right != null) {
+              // The array constraint is a store
+              ArrayExpression ae = stoex.arrayExpression;
+              ArrayExpression newae = sto_right;
+              return pb.eq(pb.realStore(pb.makeRealArrayVar(ae.getName()),
+                (stoex.indexExpression instanceof IntegerConstant) ? pb.makeIntConst(((IntegerConstant)stoex.indexExpression).value) :
+getExpression(stoex.indexExpression),
+                (stoex.value instanceof RealConstant) ? pb.makeRealConst(((RealConstant)stoex.value).value) :
+getExpression(stoex.value)),
+                 pb.makeRealArrayVar(newae.getName()));
+               
+          }
+          throw new RuntimeException("ArrayConstraint is not correct select or store");
+      case NE:
+          if (selex != null && sel_right != null) {
+              // The array constraint is a select
+              ArrayExpression ae = selex.arrayExpression;
+              return pb.neq(pb.realSelect(pb.makeRealArrayVar(ae.getName()), getExpression(selex.indexExpression)),
+getExpression(sel_right));
+               
+          }
+          if (stoex != null && sto_right != null) {
+              // The array constraint is a store
+              ArrayExpression ae = stoex.arrayExpression;
+              ArrayExpression newae = sto_right;
+              return pb.neq(pb.realStore(pb.makeRealArrayVar(ae.getName()), getExpression(stoex.indexExpression),
+getExpression(stoex.value)), newae);
+               
+          }
+          throw new RuntimeException("ArrayConstraint is not correct select or store");
+      default:
+          throw new RuntimeException("ArrayConstraint is not select or store");
+      }
+  }
+
 }

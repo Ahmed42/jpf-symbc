@@ -56,6 +56,8 @@ public class SymbolicConstraintsGeneral {
     protected Boolean result; // tells whether result is satisfiable or not
 
     public boolean isSatisfiable(PathCondition pc) {
+    	
+    	
         if (pc == null || pc.count == 0) {
             if (SymbolicInstructionFactory.debugMode)
                 System.out.println("## Warning: empty path condition");
@@ -125,6 +127,7 @@ public class SymbolicConstraintsGeneral {
          * work otherwise and the solver gets filled up with wrong assertions,
          * e.g. with Z3.
          */
+        
         ProblemGeneral tempPb = PCParser.parse(pc, pb);
 
         if (tempPb == null)
@@ -210,7 +213,7 @@ public class SymbolicConstraintsGeneral {
         String[] dp = SymbolicInstructionFactory.dp;
         if (dp[0].equalsIgnoreCase("no_solver"))
             return true;
-
+        
         if (isSatisfiable(pc)) {
 
             // compute solutions for real variables:

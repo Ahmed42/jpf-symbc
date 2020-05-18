@@ -978,7 +978,11 @@ public class ProblemZ3 extends ProblemGeneral {
 
 	@Override
 	public Object and(Object exp1, Object exp2) {
-		throw new RuntimeException("## Error Z3 \n");
+		if(exp1 instanceof BoolExpr && exp2 instanceof BoolExpr) {
+			return ctx.mkAnd((BoolExpr) exp1, (BoolExpr) exp2);
+		} else {
+			throw new RuntimeException("## Error Z3: Given expression(s) is not boolean. \n");
+		}
 	}
 
 	@Override
@@ -993,7 +997,12 @@ public class ProblemZ3 extends ProblemGeneral {
 
 	@Override
 	public Object or(Object exp1, Object exp2) {
-		throw new RuntimeException("## Error Z3 \n");
+		if(exp1 instanceof BoolExpr && exp2 instanceof BoolExpr) {
+			return ctx.mkOr((BoolExpr) exp1, (BoolExpr) exp2);
+		} else {
+			throw new RuntimeException("## Error Z3 \n");
+		}
+		
 	}
 
 	@Override
@@ -1193,5 +1202,36 @@ public class ProblemZ3 extends ProblemGeneral {
             throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
         }
     }
+    
+    // ======
+    
+    @Override
+    public Object makeFalse() {
+		return ctx.mkTrue();
+	}
+	
+    @Override
+	public Object makeTrue() {
+		return ctx.mkFalse();
+	}
 
+    @Override
+    public boolean isTrue(Object exp) {
+		try {
+			return ((BoolExpr) exp).isTrue();
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		}
+	}
+
+    @Override
+	public boolean isFalse(Object exp) {
+		try {
+			return ((BoolExpr) exp).isFalse();
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		}
+	}
 }

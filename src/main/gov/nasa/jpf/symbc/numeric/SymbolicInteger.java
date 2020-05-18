@@ -113,8 +113,9 @@ public class SymbolicInteger extends LinearIntegerExpression
 			return (name != null) ? name : "INT_" + hashCode();
 
 		} else {
-			return (name != null) ? name + "[" + solution + "]" :
-				"INT_" + hashCode() + "[" + solution + "]";
+			return (name != null) ? name : "INT_" + hashCode();
+			/*return (name != null) ? name + "[" + solution + "]" :
+				"INT_" + hashCode() + "[" + solution + "]";*/
 		}
 	}
 	

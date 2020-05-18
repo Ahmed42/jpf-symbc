@@ -235,4 +235,27 @@ public abstract class ProblemGeneral{
 	public abstract Object rem(Object exp1, Object exp2) ;
 	public abstract Object rem(long exp1, Object exp2) ;
 	public abstract Object rem(Object exp1, long exp2) ;
+	
+
+	// =================
+	
+	public Object not(Object exp1) {
+		throw new RuntimeException("## Error : not not supported");
+	}
+	
+	public Object makeFalse() {
+		throw new RuntimeException("## Error : makeFalse not supported");
+	}
+	
+	public Object makeTrue() {
+		throw new RuntimeException("## Error : makeTrue not supported");
+	}
+	
+	public boolean isTrue(Object exp) {
+		throw new RuntimeException("## Error : isTrue not supported");
+	}
+
+	public boolean isFalse(Object exp) {
+		throw new RuntimeException("## Error : isFalse not supported");
+	}
 }

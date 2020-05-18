@@ -137,27 +137,31 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
             if (SymbolicInstructionFactory.concolicMode) { // TODO: cleaner
                 SymbolicConstraintsGeneral solver = new SymbolicConstraintsGeneral();
                 PCAnalyzer pa = new PCAnalyzer();
+                
                 pa.solve(pc, solver);
-            } else
+               
+            } else {
+            	
                 pc.solve();
+            }
             
             
-            HeapChoiceGenerator heapCG = vm.getLastChoiceGeneratorOfType(HeapChoiceGenerator.class);
-            PathCondition heapPC = (heapCG==null ? null : heapCG.getCurrentPCheap());
+            //HeapChoiceGenerator heapCG = vm.getLastChoiceGeneratorOfType(HeapChoiceGenerator.class);
+            //PathCondition heapPC = (heapCG==null ? null : heapCG.getCurrentPCheap());
 
             // TODO put the error details in the result/transformation of the method
             // TODO add static fields transformations
-            SymbolicPathSummary pathSummary = new SymbolicPathSummary(pc, heapPC, null);
-            SymbolicMethodSummary symbolicMethodSummary = methodsSymbolicSummaries.get(currentMethodName);
+            //SymbolicPathSummary pathSummary = new SymbolicPathSummary(pc, heapPC, null);
+            //SymbolicMethodSummary symbolicMethodSummary = methodsSymbolicSummaries.get(currentMethodName);
             
-            
+            //System.out.println("test");
             
             // TODO add the following, even though it might not be possible for such case to happen
             //if(symbolicMethodSummary == null) {
             //	symbolicMethodSummary = new SymbolicMethodSummary(className, methodName);
             //}
 
-            symbolicMethodSummary.addPathSummary(pathSummary);
+            //symbolicMethodSummary.addPathSummary(pathSummary);
            
         }
     }
@@ -272,39 +276,14 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 									//System.out.println(insn + "\t=+=+=\t" + changedField);
 								}
 
-							} /*else {
-								System.out.println("NOT SYMBOLIC: " + insn + "\t" + attr);
-							}*/
+							} 
 						}
 
 					}
 
 				}
 
-				/*if (insn instanceof JVMReturnInstruction) {
-
-					if (methodName.equals(symbolicMethodSimpleName)) {
-						HeapChoiceGenerator heapCG = vm.getLastChoiceGeneratorOfType(HeapChoiceGenerator.class);
-						PathCondition heapPC = (heapCG == null ? null : heapCG.getCurrentPCheap());
-
-						System.out.println("Heap conditions:");
-						System.out.println(heapPC);
-
-						System.out.println("----------------------");
-
-						System.out.println("Fields Transformations:");
-
-						for (SymField field : transformedSymFields) {
-							System.out.println("\t" + field);
-						}
-
-						System.out.println("***********************");
-
-						
-
-					}
-
-				}*/
+		
 			}
 		}
 	}
@@ -312,15 +291,12 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
     @Override
     public void instructionExecuted(VM vm, ThreadInfo currentThread, Instruction nextInstruction,
             Instruction executedInstruction) {
-    	
 
         if (!vm.getSystemState().isIgnored()) {
             Instruction insn = executedInstruction;
             // SystemState ss = vm.getSystemState();
             ThreadInfo ti = currentThread;
             Config conf = vm.getConfig();
-            
-            
             
             
             /*MethodInfo mei = insn.getMethodInfo();
@@ -606,7 +582,6 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             //System.out.println("======");
                             
                             
-                            
     						PathCondition transformations = new PathCondition();
     						
     						transformations.prependAllConjuncts(returnTransformation);
@@ -620,6 +595,8 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             SymbolicPathSummary pathSummary = 
                             		new SymbolicPathSummary(pc, heapPC, transformations);
                             
+
+                            
                             SymbolicMethodSummary symbolicMethodSummary = methodsSymbolicSummaries.get(longName);
                             
                             if(!symbolicMethodSummary.containsPathSummary(pathSummary)) {
@@ -629,6 +606,7 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             
                             externalStaticFields.clear();
     						transformedSymFields.clear();
+
                             
                         }
                     }

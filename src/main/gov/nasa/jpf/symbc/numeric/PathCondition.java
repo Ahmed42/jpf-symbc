@@ -372,9 +372,9 @@ public class PathCondition implements Comparable<PathCondition> {
     }
 
     public boolean solveOld() {// warning: solve calls simplify
-
+    	
         SymbolicConstraintsGeneral solver = new SymbolicConstraintsGeneral();
-
+        
         boolean result1 = solver.solve(this);
         solver.cleanup();
         PathCondition.flagSolved = true;
