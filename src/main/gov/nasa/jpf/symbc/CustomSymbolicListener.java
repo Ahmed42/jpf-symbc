@@ -220,7 +220,9 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 							String fieldName = fieldClassInfo.getName() + "." + fieldInfo.getName();
 
 							boolean found = externalStaticFields.stream()
-									.anyMatch(field -> field.getFieldName().equals(fieldName));
+									.anyMatch(field -> field.getFieldName().equals(fieldName) &&
+											containsTrasformation(pcChoiceGens, field) &&
+											containsTrasformation(heapChoiceGens, field));
 
 							SymField externalStaticField;
 							if (!found) {
@@ -622,9 +624,6 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             System.out.println("Trasformations: " + transformations);
                             System.out.println("\n");
                             
-                            externalStaticFields.clear();
-                            // TODO might need to clear or remove some elements when backtracking
-    						//transformedSymFields.clear();
 
                             
                         }
