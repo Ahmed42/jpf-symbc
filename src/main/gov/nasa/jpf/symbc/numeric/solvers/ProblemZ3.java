@@ -1207,12 +1207,12 @@ public class ProblemZ3 extends ProblemGeneral {
     
     @Override
     public Object makeFalse() {
-		return ctx.mkTrue();
+		return ctx.mkFalse();
 	}
 	
     @Override
 	public Object makeTrue() {
-		return ctx.mkFalse();
+		return ctx.mkTrue();
 	}
 
     @Override

@@ -59,13 +59,13 @@ public class LogicalGroupingConstraint extends Constraint {
     	return copy;
 	}
 	
-	public List getList() { return list; }
+	public List<Constraint> getList() { return list; }
 	public Operator getOperator() { return operator; }
 	
 	public void addToList(Constraint constraint) {
-		if(!list.contains(constraint)) {
+		//if(!list.contains(constraint)) {
 			list.add(constraint);
-		}
+		//}
 	}
 
 	@Override
@@ -78,11 +78,17 @@ public class LogicalGroupingConstraint extends Constraint {
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		
+		if(list == null || list.isEmpty()) {
+			return "";
+		}
+		
 		Constraint con = list.get(0);
 		
 		sb.append(negated? "~" : "");
-		sb.append("(");
-		sb.append("(" + con.toString() + ")");
+		
+		if(list.size() > 1) sb.append("(");
+		
+		sb.append(con.toString());
 		
 		
 		for(int i = 1; i<list.size(); i++) {
@@ -94,10 +100,10 @@ public class LogicalGroupingConstraint extends Constraint {
 			
 			sb.append("\n");
 			
-			sb.append("(" + list.get(i).toString() + ")");
+			sb.append(list.get(i).toString());
 		}
 		
-		sb.append(")");
+		if(list.size() > 1) sb.append(")");
 		
 		if(and != null) {
 			sb.append(" && \n");

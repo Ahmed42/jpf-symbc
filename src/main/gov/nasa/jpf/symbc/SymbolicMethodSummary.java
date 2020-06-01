@@ -38,14 +38,12 @@ public class SymbolicMethodSummary {
     	String summaryStr = "Method name: " + methodInfo.getLongName() + "\n";
     	for(SymbolicPathSummary pathSummary : pathsSummaries) {
     		PathCondition pathCondition = pathSummary.getCondition();
-    		PathCondition heapPathCondition = pathSummary.getHeapCondition();
+    		//PathCondition heapPathCondition = pathSummary.getHeapCondition();
     		PathCondition transformations = pathSummary.getTransformations();
     		    		
     		
     		summaryStr += "\nPath Condition: \n" 
     					+ pathCondition
-    					+ "\nHeap Condition: \n"
-    					+ heapPathCondition
     					+ "\nTransformations: \n" 
     					+ transformations
     					+ "\n------------\n";

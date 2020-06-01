@@ -3,8 +3,12 @@ package gov.nasa.jpf.symbc;
 import gov.nasa.jpf.vm.FieldInfo;
 import gov.nasa.jpf.vm.ElementInfo;
 import gov.nasa.jpf.vm.ThreadInfo;
-
+import gov.nasa.jpf.vm.ChoiceGenerator;
+import gov.nasa.jpf.symbc.heap.HeapChoiceGenerator;
+import gov.nasa.jpf.symbc.numeric.PCChoiceGenerator;
+import gov.nasa.jpf.symbc.numeric.PathCondition;
 import gov.nasa.jpf.symbc.numeric.Expression;
+
 
 public class SymField {
 	private Expression symVar; // No other common ancestor to terminal symbolic values (consts and vars) exists
@@ -13,16 +17,40 @@ public class SymField {
 	protected FieldInfo fieldInfo;
 	private ThreadInfo currentThread;
 	
+	/*private PCChoiceGenerator pcChoiceGen;
+	private int pcChoiceNo;
 	
+	private HeapChoiceGenerator heapChoiceGen;
+	private int heapChoiceNo;*/
 	
-	public SymField(Expression sVar, ElementInfo owningObj, FieldInfo fInfo, ThreadInfo curThread) {
+	private int pcOffset;
+	private int pcChoiceNo;
+	
+	private PathCondition heapPC;
+	
+	public SymField(Expression sVar, ElementInfo owningObj, FieldInfo fInfo, 
+			int offset, int choiceNo, PathCondition hPC,
+			ThreadInfo curThread) {
 		symVar = sVar;
 		//objectRef = objRef;
 		fieldOwner = owningObj;
 		fieldInfo = fInfo;
 		currentThread = curThread;
+		
+		pcOffset = offset;
+		pcChoiceNo = choiceNo;
+		heapPC = hPC;
+		
+
 	}
 	
+	public ElementInfo getFieldOwner() { return fieldOwner; } 
+	
+	public int getPCOffset() { return pcOffset; }
+	
+	public int getPCChoiceNo() { return pcChoiceNo; }
+	
+	public PathCondition getHeapPC() { return heapPC; }
 	
 	
 	public Object getFieldVal() {
@@ -86,4 +114,13 @@ public class SymField {
 	
 	public boolean isStatic() { return fieldInfo.isStatic(); }
 	
+	/*public String toStringChoiceGen() {
+		return "\n\tPC Gen Offset: " + pcChoiceGen.getOffset() + ", PC Choice No: " + pcChoiceNo 
+				+ "\n\tHeap Choice Gen: " + heapChoiceGen + ", Heap Choice No: " + heapChoiceNo;
+	}*/
+	
+	/*public boolean equalsChoiceGens(SymField s) {
+		return pcChoiceGen == s.pcChoiceGen && heapChoiceGen == s.heapChoiceGen 
+				&& pcChoiceNo == s.pcChoiceNo && heapChoiceNo == s.heapChoiceNo;
+	}*/
 }

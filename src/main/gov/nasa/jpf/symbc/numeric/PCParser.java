@@ -1159,7 +1159,6 @@ getExpression(stoex.value)), newae));
 	    Object dpConstraint = parseToDPConstraint(pc.header, pb);
 	    
 	    
-	    
 	    if(pb.isFalse(dpConstraint)) {
 	    	return null; // unsat
 	    } else {
@@ -1172,12 +1171,6 @@ getExpression(stoex.value)), newae));
   public static Object parseToDPConstraint(Constraint constraint, ProblemGeneral pbtosolve) {
 	    pb=pbtosolve;
 	    
-	    //System.out.println("To parse: " + constraint);
-	    //symRealVar = new HashMap<SymbolicReal,Object>();
-	    //symIntegerVar = new HashMap<SymbolicInteger,Object>();
-	    //result = null;
-	    //tempVars = 0;
-
 	    //Constraint constraint = pc.header;
 	    Object dpConstraint = null;
 	    
@@ -1202,6 +1195,7 @@ getExpression(stoex.value)), newae));
 	    		for(int i = 1; i < groupedConstraints.size(); i++) {
 	    			Object subDPConstraint = parseToDPConstraint(groupedConstraints.get(i), pb);
 	    			
+	    			
 	    			if(logicalGroupedConstraint.getOperator() == LogicalGroupingConstraint.Operator.AND) {
 	    				groupedDPConstraints = pb.and(groupedDPConstraints, subDPConstraint);
 	    				
@@ -1209,11 +1203,9 @@ getExpression(stoex.value)), newae));
 	    					break;
 	    				}
 	    			} else { // OR operator case
-	    				try {
+	    				
 	    				groupedDPConstraints = pb.or(groupedDPConstraints,  subDPConstraint);
-	    				} catch(Exception e) {
-	    					throw new RuntimeException(e);
-	    				}
+	    				
 	    				if(pb.isTrue(groupedDPConstraints)) {
 	    					break;
 	    				}
@@ -1238,9 +1230,7 @@ getExpression(stoex.value)), newae));
 	    	}
 	    	
 	    	constraint = constraint.and;
-	    	//System.out.println("Parsed: " + dpConstraint); 
 	    }
-	    
 	    
 	    return dpConstraint;
 	  }
