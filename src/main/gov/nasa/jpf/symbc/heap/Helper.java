@@ -173,7 +173,7 @@ public class Helper {
 		  HeapNode n= new HeapNode(daIndex,typeClassInfo,newSymRef);
 		  symInputHeap._add(n);
 		  pcHeap._addDet(Comparator.NE, newSymRef, new IntegerConstant(-1));
-		  pcHeap._addDet(Comparator.EQ, newSymRef, new IntegerConstant(numSymRefs));
+		  //pcHeap._addDet(Comparator.EQ, newSymRef, new IntegerConstant(numSymRefs));
 		  for (int i=0; i< numSymRefs; i++)
 			  pcHeap._addDet(Comparator.NE, n.getSymbolic(), prevSymRefs[i].getSymbolic());
 		  return daIndex;

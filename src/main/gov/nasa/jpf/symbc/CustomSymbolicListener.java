@@ -595,19 +595,22 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
     						PCChoiceGenerator[] pcChoiceGens = vm.getChoiceGeneratorsOfType(PCChoiceGenerator.class);
     						HeapChoiceGenerator[] heapChoiceGens = vm.getChoiceGeneratorsOfType(HeapChoiceGenerator.class);
     						
+    						List<TransformedSymField> pathTransformedFields = new ArrayList<TransformedSymField>();
     						
     						for(TransformedSymField transformedField : transformedSymFields) {    							
     							boolean isPresentInPCGC = containsTrasformation(pcChoiceGens, transformedField);
     							boolean isPresentInHeapGC = containsTrasformation(heapChoiceGens, transformedField);
     							
     							if(isPresentInHeapGC && isPresentInPCGC) {
+    								pathTransformedFields.add(transformedField);
     								transformations.prependAllConjuncts(transformedField.getTransformationConstraint());
+    								
     							}
     						}
     	
     						
                             SymbolicPathSummary pathSummary = 
-                            		new SymbolicPathSummary(pc, heapPC, transformations, transformedSymFields);
+                            		new SymbolicPathSummary(pc, heapPC, transformations, pathTransformedFields);
                             
 
                             
