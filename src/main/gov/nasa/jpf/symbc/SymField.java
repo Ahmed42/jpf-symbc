@@ -67,8 +67,27 @@ public class SymField {
 		}*/
 		
 		//System.out.println(fieldOwner.getFieldAttr(fieldInfo));
+		
+		int objRef = fieldOwner.getObjectRef();
+		ElementInfo actualOwner = currentThread.getElementInfo(objRef);
+		
+		fieldOwner = actualOwner;
+		
 		Object value = fieldOwner.getFieldAttr(fieldInfo);
 		
+		/*if(value == null && fieldInfo.isIntField()) {
+			value = actualOwner.getIntField(fieldInfo);
+		}
+		
+		System.out.println("In getFieldVal():"
+				+ "\n\tvalue: " + value
+				+ "\n\towner: " + actualOwner
+				+ "\n\tref: " + actualOwner.getObjectRef());*/
+		
+		
+		//System.out.println("Field value: " + value);
+		
+		// Value might not be symbolic
 		if(value == null) {
 			if(fieldInfo.isBooleanField()) {
 				value = fieldOwner.getBooleanField(fieldInfo);
@@ -87,7 +106,19 @@ public class SymField {
 			} else if(fieldInfo.isDoubleField()) {
 				value = fieldOwner.getDoubleField(fieldInfo);
 			} else if(fieldInfo.isReference()) {
-				value = fieldOwner.getReferenceField(fieldInfo);
+				// TODO handle reference non-string data 
+				if(fieldInfo.getType().contains("String")) {
+					int ref = fieldOwner.getReferenceField(fieldInfo);
+					//value = fieldOwner.getStringField(fieldInfo.getName());
+					ElementInfo stringFieldElement = currentThread.getVM().getHeap().get(ref);
+					
+					System.out.println("Ref#" + ref + ", value: " + value);
+					
+					if(stringFieldElement != null) {
+						value = stringFieldElement.asString();
+					}
+				}
+				
 			}
 		}
 		// TODO might need to add arrays
