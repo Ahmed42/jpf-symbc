@@ -42,8 +42,8 @@ public class Translator<Manager extends TranslationManager> {
 
 		final String assertions = Arrays.asList(
 			additional_assertions.stream().collect(Collectors.joining("\n")),
-		        manager.strCons.collect(strc),
-		        manager.numCons.collect(npc)
+		        manager.strCons.collect(strc)
+		        //manager.numCons.collect(npc)
 		).stream().collect(Collectors.joining("\n"));
 
 		// pull out the declarations
@@ -134,7 +134,7 @@ public class Translator<Manager extends TranslationManager> {
 	}
 	
 	public String createSymbolicDeclaration(final Set<String> symbolicVars, String type) {
-		return symbolicVars.parallelStream().map((var) -> "(declare-variable " + var + " " + type + ")")
+		return symbolicVars.parallelStream().map((var) -> "(declare-const " + var + " " + type + ")")
 				.collect(Collectors.joining("\n"));
 	}
 
