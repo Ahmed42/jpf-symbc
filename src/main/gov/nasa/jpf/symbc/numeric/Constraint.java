@@ -158,7 +158,7 @@ public abstract class Constraint implements Comparable<Constraint> {
 	}
   
   public String toString() {
-    return left.toString() + comp.toString() + right.toString()
+    return "" + left + comp + right
         //+ ((and == null) ? "" : " && " + and.toString()); -- for specialization
         + ((and == null) ? "" : " &&\n" + and.toString());
   }

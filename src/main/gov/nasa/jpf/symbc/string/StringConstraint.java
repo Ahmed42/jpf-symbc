@@ -66,7 +66,7 @@ public class StringConstraint {
 
   StringConstraint and;
 
-  StringConstraint(StringExpression l, StringComparator c, StringExpression r) {
+  public StringConstraint(StringExpression l, StringComparator c, StringExpression r) {
     left = l;
     comp = c;
     right = r;
@@ -156,10 +156,10 @@ public class StringConstraint {
 
   public String toString() {
    if(left != null) {
-    return "(" + left.toString() + comp.toString() + right.toString() + ")"
+    return "(" + left.toString() + comp.toString() + right + ")"
         + ((and == null) ? "" : " && " + and.toString());
    } else {
-	    return "(" + comp.toString() + right.toString() + ")"
+	    return "(" + comp.toString() + right + ")"
         + ((and == null) ? "" : " && " + and.toString());
    }
   }
