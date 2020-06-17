@@ -51,5 +51,14 @@ public class RealArrayConstraint extends Constraint {
             }
         }
     }
+    
+    @Override
+	public Constraint makeCopy() {
+		Constraint copy = copy();
+    	if(this.and != null) {
+    		copy.and = this.and.makeCopy();
+    	}
+    	return copy;
+	}
 }
 

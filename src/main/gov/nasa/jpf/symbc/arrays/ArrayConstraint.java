@@ -23,6 +23,7 @@ package gov.nasa.jpf.symbc.arrays;
 import gov.nasa.jpf.symbc.numeric.Constraint;
 import gov.nasa.jpf.symbc.numeric.Comparator;
 import gov.nasa.jpf.symbc.numeric.IntegerExpression;
+import gov.nasa.jpf.symbc.numeric.RealConstraint;
 
 public class ArrayConstraint extends Constraint {
     public ArrayConstraint(SelectExpression se, Comparator c, IntegerExpression ae) {
@@ -58,5 +59,14 @@ public class ArrayConstraint extends Constraint {
             }
         }
     }
+
+	@Override
+	public Constraint makeCopy() {
+		Constraint copy = copy();
+    	if(this.and != null) {
+    		copy.and = this.and.makeCopy();
+    	}
+    	return copy;
+	}
 }
 
