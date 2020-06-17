@@ -269,6 +269,8 @@ public class PathCondition implements Comparable<PathCondition> {
     }
 
     public void prependAllConjuncts(Constraint t) {
+    	//flagSolved = false; // TODO might need to remove
+    	
         t.last().and = header;
         header = t;
         count = length(header);
@@ -380,7 +382,8 @@ public class PathCondition implements Comparable<PathCondition> {
         PathCondition.flagSolved = true;
 
         // modification for string path condition
-        boolean result2 = spc.solve(); // TODO: to review
+        
+        boolean result2 = (spc.count() == 0) || spc.solve(); // TODO: to review
         return result1 && result2;
     }
 
@@ -408,16 +411,18 @@ public class PathCondition implements Comparable<PathCondition> {
 
         if (!result1)
             return false;
-        boolean result2 = spc.simplify(); // TODO to review: used for strings
+        boolean result2 = (spc.count() == 0) || spc.simplify(); // TODO to review: used for strings
         return result1 && result2;
     }
 
     public String stringPC() {
-        return "constraint # = " + count + ((header == null) ? "" : "\n" + header.stringPC());
+        return "constraint # = " + count + ((header == null) ? "" : "\n" + header.stringPC())
+        		+ "\nString Constraints: " + spc;
     }
 
     public String toString() {
-        return "constraint # = " + count + ((header == null) ? "" : "\n" + header.toString());
+        return "constraint # = " + count + ((header == null) ? "" : "\n" + header.toString())
+        		+ "\nString Constraints: " + spc;
         // return ((header == null) ? "" : " " + header.toString()); -- for
         // specialization
         // + "\n" + spc.toString(); // TODO: to review

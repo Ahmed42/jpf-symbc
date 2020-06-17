@@ -115,6 +115,16 @@ public class StringPathCondition {
 	      count++;
 	    }
 	  }
+	  
+	  public void _addDet(StringConstraint t) {
+		  flagSolved = false;
+		  
+		  if(!hasConstraint(t)) {
+			  t.and = header;
+		      header = t;
+		      count++;
+		  }
+	  }
 
 	  public int count() {
 	    return count;
@@ -147,13 +157,13 @@ public class StringPathCondition {
 	  }
 
 	  public String stringPC() {
-	    return "SPC # = " + count + ((header == null) ? "" : "\n" + header.stringPC()) +"\n"
-	    		+ "NPC "+npc.stringPC();
+	    return "SPC # = " + count + ((header == null) ? "" : "\n" + header.stringPC());
+	    //+"\n" + "NPC "+npc.stringPC();
 	  }
 
 	  public String toString() {
-	    return "SPC # = " + count + ((header == null) ? "" : "\n" + header.toString()) +"\n"
-	    		+ "NPC "+npc.toString();
+	    return "SPC # = " + count + ((header == null) ? "" : "\n" + header.toString());
+	    	// +"\n" + "NPC "+npc.toString();
 	  }
 
 	public PathCondition getNpc() {

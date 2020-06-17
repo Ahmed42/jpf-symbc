@@ -11,6 +11,11 @@ import gov.nasa.jpf.symbc.numeric.RealExpression;
 import gov.nasa.jpf.symbc.numeric.IntegerExpression;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
 import gov.nasa.jpf.symbc.numeric.SymbolicReal;
+import gov.nasa.jpf.symbc.string.StringExpression;
+import gov.nasa.jpf.symbc.string.StringSymbolic;
+import gov.nasa.jpf.symbc.string.StringComparator;
+import gov.nasa.jpf.symbc.string.StringConstant;
+import gov.nasa.jpf.symbc.string.StringConstraint;
 import gov.nasa.jpf.symbc.numeric.Comparator;
 import gov.nasa.jpf.symbc.numeric.Constraint;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
@@ -70,9 +75,15 @@ public class TransformedSymField extends SymField {
 
 		} else if(fInfo.isReference()) {
 			// TODO might need to create a different var for strings
-			outVar = new SymbolicInteger(varName);
-			identityConstraint = new LinearIntegerConstraint((IntegerExpression)outVar, Comparator.EQ, (IntegerExpression)sVar);
-
+			
+			if(fInfo.getType().equals("java.lang.String")) {
+				outVar = new StringSymbolic(varName);
+			} else {
+				outVar = new SymbolicInteger(varName);
+				identityConstraint = new LinearIntegerConstraint((IntegerExpression)outVar, Comparator.EQ, (IntegerExpression)sVar);
+			}
+			
+			
 		} else {
 			assert(false);
 		}
@@ -82,8 +93,8 @@ public class TransformedSymField extends SymField {
 	
 	public Constraint getIdentityConstraint() { return identityConstraint; }
 	
-	public Constraint getTransformationConstraint() {
-		Constraint transformation = null;
+	public Object getTransformationConstraint() {
+		Object transformation = null;
 		Object rightSide = getFieldVal();
 		
 		if(fieldInfo.isFloatingPointField() || fieldInfo.isDoubleField()) {
@@ -95,28 +106,52 @@ public class TransformedSymField extends SymField {
 				rightSideExpr = new RealConstant((double)rightSide);
 			}
 			
+			
 			transformation = new RealConstraint((RealExpression) symVarOutput, Comparator.EQ, rightSideExpr);
 			
 			/*transformation = new RealConstraint((RealExpression) symVarOutput, 
 					Comparator.EQ, (RealExpression) getFieldVal());*/
+		} else if(fieldInfo.getType().equals("java.lang.String")) {
+				StringExpression rightSideExpr = null;
+				
+				if(rightSide instanceof StringExpression) {
+					rightSideExpr = (StringExpression) rightSide;
+				} else if(rightSide instanceof String) {
+					rightSideExpr = new StringConstant((String)rightSide);
+				} 
+				// TODO might need to check for StringBuilder and maybe Regex as well
+				
+				assert(rightSideExpr != null);
+				
+				transformation = 
+						new StringConstraint((StringExpression) symVarOutput, StringComparator.EQUALS, rightSideExpr);
 		} else {
-			IntegerExpression rightSideExpr = null;
-			
-			if(rightSide instanceof IntegerExpression) {
-				rightSideExpr = (IntegerExpression) rightSide;
-			} else if(rightSide instanceof Long){
-				rightSideExpr = new IntegerConstant((Long)rightSide);
-			} else if(rightSide instanceof Integer) {
-				rightSideExpr = new IntegerConstant((Integer)rightSide);
-			}
-			
-			assert(rightSideExpr != null);
-			
-			transformation = new LinearIntegerConstraint((IntegerExpression) symVarOutput, Comparator.EQ, rightSideExpr);
+				IntegerExpression rightSideExpr = null;
+				
+				if(rightSide instanceof IntegerExpression) {
+					rightSideExpr = (IntegerExpression) rightSide;
+				} else if(rightSide instanceof Long){
+					rightSideExpr = new IntegerConstant((Long)rightSide);
+				} else if(rightSide instanceof Integer) {
+					rightSideExpr = new IntegerConstant((Integer)rightSide);
+				} else if(rightSide instanceof Boolean) {
+					// TODO create boolean expression types
+					if((Boolean)rightSide) {
+						rightSideExpr = new IntegerConstant(1);
+					} else {
+						rightSideExpr = new IntegerConstant(0);
+					}
+					
+				}
+				
+				assert(rightSideExpr != null);
+				
+				transformation = new LinearIntegerConstraint((IntegerExpression) symVarOutput, Comparator.EQ, rightSideExpr);
+		}
 			
 			/*transformation = new LinearIntegerConstraint((IntegerExpression) symVarOutput, 
 					Comparator.EQ, (IntegerExpression) getFieldVal());*/
-		}
+		
 		
 		return transformation;
 	}

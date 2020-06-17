@@ -43,9 +43,16 @@ public class SymbolicPathSummary {
 			this.condition.prependAllConjuncts(new LinearIntegerConstraint(new IntegerConstant(1), Comparator.EQ, new IntegerConstant(1)));
 		}*/
 		
+		// TODO: add proper makeCopy to spc
+		if(pCondition != null && pCondition.spc.count() > 0) {
+			this.condition.spc = pCondition.spc.make_copy(pCondition);
+		}
+		
+		
 		if(hCondition != null && hCondition.header != null) {
 			this.condition.prependAllConjuncts(hCondition.header.makeCopy());
 		}
+		
 		
 	}
 	

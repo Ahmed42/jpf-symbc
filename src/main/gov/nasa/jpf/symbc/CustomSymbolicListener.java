@@ -30,6 +30,7 @@ import gov.nasa.jpf.vm.StackFrame;
 import gov.nasa.jpf.vm.ThreadInfo;
 import gov.nasa.jpf.vm.Types;
 import gov.nasa.jpf.vm.VM;
+import gov.nasa.jpf.vm.Heap;
 import gov.nasa.jpf.vm.Transition;
 import gov.nasa.jpf.vm.choice.IntIntervalGenerator;
 
@@ -74,6 +75,7 @@ import gov.nasa.jpf.symbc.numeric.RealExpression;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
 import gov.nasa.jpf.symbc.numeric.SymbolicReal;
 import gov.nasa.jpf.symbc.string.StringSymbolic;
+import gov.nasa.jpf.symbc.string.StringConstraint;
 import gov.nasa.jpf.symbc.numeric.SymbolicConstraintsGeneral;
 
 import gov.nasa.jpf.symbc.numeric.Constraint;
@@ -148,10 +150,15 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                 pc.solve();
             }
             
+            System.out.println("An exception has been thrown.");
+            System.out.println("Path constraints: " + pc);
             
-            //HeapChoiceGenerator heapCG = vm.getLastChoiceGeneratorOfType(HeapChoiceGenerator.class);
-            //PathCondition heapPC = (heapCG==null ? null : heapCG.getCurrentPCheap());
+            
+            HeapChoiceGenerator heapCG = vm.getLastChoiceGeneratorOfType(HeapChoiceGenerator.class);
+            PathCondition heapPC = (heapCG==null ? null : heapCG.getCurrentPCheap());
 
+            System.out.println("Heap constraints: " + heapPC);
+            
             // TODO put the error details in the result/transformation of the method
             // TODO add static fields transformations
             //SymbolicPathSummary pathSummary = new SymbolicPathSummary(pc, heapPC, null);
@@ -178,11 +185,14 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 			MethodInfo mi = insn.getMethodInfo();
 			String methodName = mi.getName();
 			ClassInfo ci = mi.getClassInfo();
+			String longName = mi.getLongName();
 
 			if (ci != null) {
 				// Get the latest choice generator of type PCChoiceGenerator or HeapChoiceGenerator
 				PCChoiceGenerator[] pcChoiceGens = vm.getChoiceGeneratorsOfType(PCChoiceGenerator.class);
 				HeapChoiceGenerator[] heapChoiceGens = vm.getChoiceGeneratorsOfType(HeapChoiceGenerator.class);
+				
+				
 				
 				PCChoiceGenerator pcChoiceGen = vm.getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
 				HeapChoiceGenerator heapChoiceGen = vm.getLastChoiceGeneratorOfType(HeapChoiceGenerator.class);
@@ -192,13 +202,13 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 				if(pcChoiceGen != null) {
 					pcChoiceNo = pcChoiceGen.getNextChoice();
 					pcOffset = pcChoiceGen.getOffset();
-				}
+				} 
 				
 				PathCondition heapPC = null;
 				
 				if(heapChoiceGen != null) {
 					heapPC = heapChoiceGen.getCurrentPCheap();
-				}
+				} 
 				
 				// Insert symbolic vars for static fields of other classes
 				if (insn instanceof PUTSTATIC || insn instanceof GETSTATIC) {
@@ -287,6 +297,11 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 
 						if (fieldOwner != null) {
 							Object attr = fieldOwner.getFieldAttr(fieldInfo);
+							
+							/*System.out.println("PUTFIELD: " 
+											+ "\n\tvalue: "+ attr
+											+ "\n\towner: " +  fieldOwner
+											+ "\n\tOwner ref: " + objRef);*/
 
 							if (attr instanceof SymbolicInteger || attr instanceof SymbolicReal
 									|| attr instanceof StringSymbolic) {
@@ -312,7 +327,7 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 													currentThread);
 									
 									transformedSymFields.add(changedField);
-								}
+								} 
 
 							} 
 						}
@@ -320,6 +335,89 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 					}
 
 				}
+				
+				/*if(insn instanceof JVMReturnInstruction) {
+					
+					//PCChoiceGenerator pccg = vm.getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
+					PathCondition pc = pcChoiceGen.getCurrentPC();
+					
+					if(!pc.flagSolved || !heapPC.flagSolved) {
+						return;
+					}
+					
+					PathCondition transformations = new PathCondition();
+					
+					// We add a trivially true constraint
+                	Constraint returnTransformation = new LinearIntegerConstraint(new IntegerConstant(1), Comparator.EQ, new IntegerConstant(1));
+					
+					transformations.prependAllConjuncts(returnTransformation);
+					
+					//PCChoiceGenerator[] pcChoiceGens = vm.getChoiceGeneratorsOfType(PCChoiceGenerator.class);
+					//HeapChoiceGenerator[] heapChoiceGens = vm.getChoiceGeneratorsOfType(HeapChoiceGenerator.class);
+					
+					List<TransformedSymField> pathTransformedFields = new ArrayList<TransformedSymField>();
+					
+					for(TransformedSymField transformedField : transformedSymFields) {    							
+						boolean isPresentInPCGC = containsTrasformation(pcChoiceGens, transformedField);
+						boolean isPresentInHeapGC = containsTrasformation(heapChoiceGens, transformedField);
+						
+						if(isPresentInHeapGC && isPresentInPCGC) {
+							pathTransformedFields.add(transformedField);
+							
+							Object transformationToAdd = transformedField.getTransformationConstraint();
+							
+							if(transformationToAdd instanceof Constraint) {
+								transformations.prependAllConjuncts((Constraint) transformationToAdd);
+							} else if(transformationToAdd instanceof StringConstraint) {
+								transformations.spc._addDet((StringConstraint) transformationToAdd);
+							}
+							
+							
+						}
+					}
+
+					
+                    SymbolicPathSummary pathSummary = 
+                    		new SymbolicPathSummary(pc, heapPC, transformations, pathTransformedFields);
+                    
+
+                    
+                    SymbolicMethodSummary symbolicMethodSummary = methodsSymbolicSummaries.get(longName);
+                    
+                    if(!symbolicMethodSummary.containsPathSummary(pathSummary)) {
+                    	symbolicMethodSummary.addPathSummary(pathSummary);
+                    }
+                        
+                    System.out.println("Choice Gen PC: " + pc);
+                    System.out.println("-------------------");
+                    System.out.println("Choice Gen HC: " + heapPC);
+                    System.out.println("===================");
+                    System.out.println("Trasformations: " + transformations);
+                    System.out.println("\n");
+					
+					Heap heap = vm.getHeap();
+					
+					System.out.println("Checking out the heap BEFORE Return..");
+					
+					Iterable<ElementInfo> liveObjs = heap.liveObjects();
+					
+					for(ElementInfo liveObj : liveObjs) {
+						boolean inCurrentThread = liveObj.getReferencingThreads().contains(currentThread);
+						int ref = liveObj.getObjectRef();
+						String content = "<none>";
+						
+						if(liveObj.isStringObject()) {
+							content = liveObj.asString();
+						}
+						
+						// && liveObj.getType().contains("String")
+						if(inCurrentThread && ref >= 300 && liveObj.getType().contains("String")) {
+							System.out.println("\t" + ref + ":" +  liveObj.getType() + ":" + content);
+						}
+						
+						 
+					}
+				}*/
 
 		
 			}
@@ -586,6 +684,32 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             }
                             
                             
+                            /*Heap heap = vm.getHeap();
+        					
+        					System.out.println("Checking out the heap AFTER Return..");
+        					
+        					Iterable<ElementInfo> liveObjs = heap.liveObjects();
+        					
+        					for(ElementInfo liveObj : liveObjs) {
+        						boolean inCurrentThread = liveObj.getReferencingThreads().contains(currentThread);
+        						int ref = liveObj.getObjectRef();
+        						String content = "<none>";
+        						
+        						if(liveObj.isStringObject()) {
+        							content = liveObj.asString();
+        						}
+        						
+        						// && liveObj.getType().contains("String")
+        						if(inCurrentThread && ref >= 300 && liveObj.getType().contains("String")) {
+        							System.out.println("\t" + ref + ":" +  liveObj.getType() + ":" + content);
+        						}
+        						
+        						 
+        					}*/
+                            
+                            
+                            
+                            // Debugging .. 
                             
     						PathCondition transformations = new PathCondition();
     						
@@ -603,7 +727,15 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
     							
     							if(isPresentInHeapGC && isPresentInPCGC) {
     								pathTransformedFields.add(transformedField);
-    								transformations.prependAllConjuncts(transformedField.getTransformationConstraint());
+    								
+    								Object transformationToAdd = transformedField.getTransformationConstraint();
+    								
+    								if(transformationToAdd instanceof Constraint) {
+    									transformations.prependAllConjuncts((Constraint) transformationToAdd);
+    								} else if(transformationToAdd instanceof StringConstraint) {
+    									transformations.spc._addDet((StringConstraint) transformationToAdd);
+    								}
+    								
     								
     							}
     						}
@@ -632,7 +764,41 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                         }
                     }
                 }
-            } 
+            } /*else if (insn instanceof PUTFIELD) {
+            	MethodInfo mi = insn.getMethodInfo();
+            	String methodName = mi.getName();
+            	if (methodName.equals(symbolicMethodSimpleName)) {
+
+					FieldInfo fieldInfo = ((WriteInstruction) insn).getFieldInfo();
+
+					ClassInfo fieldClassInfo = fieldInfo.getClassInfo();
+
+					ElementInfo fieldOwner = null;
+
+					int objRef = MJIEnv.NULL;
+			
+						StackFrame frame = currentThread.getTopFrame();
+						// StackFrame frame = currentThread.getModifiableTopFrame();
+						objRef = frame.peek(((PUTFIELD) insn).getFieldSize());
+
+						if (objRef != MJIEnv.NULL) {
+							fieldOwner = currentThread.getElementInfo(objRef);
+						}
+
+					if (fieldOwner != null) {
+						Object attr = fieldOwner.getFieldAttr(fieldInfo);
+						
+						if(attr == null && fieldInfo.isIntField()) {
+							attr = fieldOwner.getIntField(fieldInfo);
+						}
+						
+						System.out.println("After exec PUTFIELD: "  
+											+ "\n\tvalue: " + attr
+											+ "\n\towner: " +  fieldOwner
+											+ "\n\tOwner ref: " + objRef);
+					}
+            	}
+            }*/
         }
     }
     
