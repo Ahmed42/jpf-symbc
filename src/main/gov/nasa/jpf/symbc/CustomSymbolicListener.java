@@ -75,6 +75,9 @@ import gov.nasa.jpf.symbc.numeric.RealExpression;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
 import gov.nasa.jpf.symbc.numeric.SymbolicReal;
 import gov.nasa.jpf.symbc.string.StringSymbolic;
+import gov.nasa.jpf.symbc.string.StringConstant;
+import gov.nasa.jpf.symbc.string.StringExpression;
+import gov.nasa.jpf.symbc.string.StringComparator;
 import gov.nasa.jpf.symbc.string.StringConstraint;
 import gov.nasa.jpf.symbc.numeric.SymbolicConstraintsGeneral;
 
@@ -637,20 +640,23 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 
                             } else if (insn instanceof ARETURN) {
                                 ARETURN areturn = (ARETURN) insn;
-                                IntegerExpression returnAttr = (IntegerExpression) areturn.getReturnAttr(ti);
+                                Expression returnAttr = (Expression) areturn.getReturnAttr(ti);
                                 if (returnAttr != null) {
-                                    returnString = "Return Value: " + String.valueOf(returnAttr.solution());
-                                    result = returnAttr;
+                                		//returnString = "Return Value: " + String.valueOf(returnAttr.solution());
+                                        result = returnAttr;
                                 } else {// concrete
-                                    Object val = areturn.getReturnValue(ti);
-                                    returnString = "Return Value: " + String.valueOf(val);
-                                    // DynamicElementInfo val = (DynamicElementInfo)areturn.getReturnValue(ti);
-                                    String tmp = String.valueOf(val);
-                                    tmp = tmp.substring(tmp.lastIndexOf('.') + 1); // TODO might need to check this later
-                                    result = new SymbolicInteger(tmp);
+                                    ElementInfo val = (ElementInfo) areturn.getReturnValue(ti);
                                     
-                                    
-
+                                    if(val != null && val.isStringObject()) {
+                                    	result = new StringConstant((String) val.asString());
+                                    } else {
+                                    	returnString = "Return Value: " + String.valueOf(val);
+                                        // DynamicElementInfo val = (DynamicElementInfo)areturn.getReturnValue(ti);
+                                        String tmp = String.valueOf(val);
+                                        //tmp = tmp.substring(tmp.lastIndexOf('.') + 1); // TODO might need to check this later
+                                        result = new SymbolicInteger(tmp);
+                                    }
+     
                                 }
                             } else // other types of return
                                 returnString = "Return Value: --";
@@ -658,13 +664,16 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             
                             
                             
-                            Constraint returnTransformation = null;
+                            ParsableConstraint returnTransformation = null;
                             String returnVarName = "RET"; // TODO append hash of method name to ensure that it doesn't collide with an existing var
                             Expression retOutVar;
                             
                             if(insn instanceof FRETURN || insn instanceof DRETURN) {
                             	retOutVar = new SymbolicReal(returnVarName, MinMax.getVarMinDouble(returnVarName), MinMax.getVarMaxDouble(returnVarName));
                                 returnTransformation = new RealConstraint((RealExpression) retOutVar, Comparator.EQ, (RealExpression) result);
+                            } else if(insn instanceof ARETURN && result instanceof StringExpression) {
+                            	retOutVar = new StringSymbolic("RET");
+                            	returnTransformation = new StringConstraint((StringExpression) retOutVar, StringComparator.EQUALS, (StringExpression) result);
                             } else if (!(insn instanceof RETURN)) {
                             	long min, max;
                             	
