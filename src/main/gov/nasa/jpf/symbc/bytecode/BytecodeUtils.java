@@ -343,7 +343,8 @@ public class BytecodeUtils {
                     } else if (argTypes[j].equalsIgnoreCase("int[]") || argTypes[j].equalsIgnoreCase("long[]")
                             || argTypes[j].equalsIgnoreCase("byte[]")) {
                         if (symarray) {
-                            ArrayExpression sym_v = new ArrayExpression(th.getElementInfo(sf.peek()).toString());
+                        	ArrayExpression sym_v = new ArrayExpression(name);
+                            //ArrayExpression sym_v = new ArrayExpression(th.getElementInfo(sf.peek()).toString());
                             expressionMap.put(name, sym_v);
                             sf.setOperandAttr(stackIdx, sym_v);
                             outputString = outputString.concat(" " + sym_v + ",");
