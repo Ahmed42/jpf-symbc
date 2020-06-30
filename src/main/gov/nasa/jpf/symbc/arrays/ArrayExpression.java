@@ -77,6 +77,11 @@ public class ArrayExpression extends Expression {
         this.length = prev.length;
         this.elemType = prev.getElemType();
     }
+    
+    public ArrayExpression makeCopy() {
+    	ArrayExpression copy = new ArrayExpression(this);
+    	return copy;
+    }
         
     public String getElemType() {
         return elemType;
