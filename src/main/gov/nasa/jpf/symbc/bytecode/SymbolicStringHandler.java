@@ -68,11 +68,13 @@ import gov.nasa.jpf.jvm.bytecode.JVMInvokeInstruction;
 import gov.nasa.jpf.symbc.mixednumstrg.SpecialRealExpression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
 import gov.nasa.jpf.symbc.numeric.PCChoiceGenerator;
+import gov.nasa.jpf.symbc.numeric.Comparator;
 import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerExpression;
 import gov.nasa.jpf.symbc.numeric.RealExpression;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
 import gov.nasa.jpf.symbc.string.*;
+import gov.nasa.jpf.symbc.arrays.StringByteArrayExpression;
 import gov.nasa.jpf.symbc.mixednumstrg.*;
 
 
@@ -306,6 +308,18 @@ public class SymbolicStringHandler {
 				handledoubleValue(invInst, th);
 			} else if (shortName.equals("booleanValue")) {
 				handlefloatValue(invInst, th);
+			} else if(shortName.equals("getBytes")) {
+				handleGetBytes(invInst, th);
+			} else if(shortName.equals("isEmpty")) {
+				ChoiceGenerator<?> cg;
+				if (!th.isFirstStepInsn()) { // first time around
+					cg = new PCChoiceGenerator(2);
+					th.getVM().setNextChoiceGenerator(cg);
+					return invInst;
+				} else {
+					handleIsEmpty(invInst, th);
+					return invInst.getNext(th);
+				}
 			} else {
 				throw new RuntimeException("ERROR: symbolic method not handled: " + shortName);
 				//return null;
@@ -315,6 +329,110 @@ public class SymbolicStringHandler {
 			return null;
 		}
 
+	}
+	
+	private void handleIsEmpty(JVMInvokeInstruction invInst, ThreadInfo th) {
+		StackFrame sf = th.getModifiableTopFrame();
+		
+		StringExpression sym_v1 = (StringExpression) sf.getOperandAttr(0);
+		
+		if(sym_v1 == null) {
+			throw new RuntimeException("ERROR: symbolic string method must have one symbolic operand: handleIsEmpty");
+		} else {
+			
+			ChoiceGenerator<?> cg;
+			boolean conditionValue;
+
+			cg = th.getVM().getChoiceGenerator();
+			assert (cg instanceof PCChoiceGenerator) : "expected PCChoiceGenerator, got: " + cg;
+			conditionValue = (Integer) cg.getNextChoice() == 0 ? false : true;
+
+			PathCondition pc;
+			int s1 = sf.pop();
+
+			// pc is updated with the pc stored in the choice generator above
+			// get the path condition from the
+			// previous choice generator of the same type
+
+			ChoiceGenerator<?> prev_cg = cg.getPreviousChoiceGenerator();
+			while (!((prev_cg == null) || (prev_cg instanceof PCChoiceGenerator))) {
+				prev_cg = prev_cg.getPreviousChoiceGenerator();
+			}
+
+			if (prev_cg == null) {
+				pc = new PathCondition();
+			} else {
+				pc = ((PCChoiceGenerator) prev_cg).getCurrentPC();
+			}
+			
+			if(conditionValue) {
+				pc.spc._addDet(StringComparator.EMPTY, sym_v1);
+				
+				if (!pc.simplify()) {// not satisfiable
+					th.getVM().getSystemState().setIgnored(true);
+				} else {
+					((PCChoiceGenerator) cg).setCurrentPC(pc);
+				}
+			} else {
+				pc.spc._addDet(StringComparator.NOTEMPTY, sym_v1);
+				
+				if (!pc.simplify()) {// not satisfiable
+					th.getVM().getSystemState().setIgnored(true);
+				} else {
+					((PCChoiceGenerator) cg).setCurrentPC(pc);
+				}
+			}
+			
+			sf.push(conditionValue ? 1 : 0, true);
+		}
+	}
+	
+	private void handleGetBytes(JVMInvokeInstruction invInst, ThreadInfo th) {
+		StackFrame sf = th.getModifiableTopFrame();
+		
+		int numStackSlots = invInst.getArgSize();
+		
+		StringExpression sym_v1 = (StringExpression) sf.getOperandAttr(numStackSlots - 1);
+		
+		if(sym_v1 == null) {
+			throw new RuntimeException("ERROR: symbolic string method must have one symbolic operand: handleGetBytes");
+		} else {
+			int s1 = sf.pop();
+			
+			ChoiceGenerator<?> cg = th.getVM().getChoiceGenerator();
+            //System.out.println(cg);
+            if (!(cg instanceof PCChoiceGenerator)) {
+                ChoiceGenerator<?> prev_cg = cg.getPreviousChoiceGenerator();
+                while (!((prev_cg == null) || (prev_cg instanceof PCChoiceGenerator))) {
+                    prev_cg = prev_cg.getPreviousChoiceGenerator();
+                }
+                cg = prev_cg;
+            }
+            
+            PathCondition pc = null;
+            
+            if(cg instanceof PCChoiceGenerator) {
+            	pc = ((PCChoiceGenerator) cg).getCurrentPC();
+            } else {
+            	assert(false);
+            }
+			
+            String arrayName = sym_v1.getName() + "_ByteArray";
+            
+			StringByteArrayExpression byteArray = new StringByteArrayExpression(arrayName, sym_v1);
+			
+			pc._addDet(Comparator.EQ, byteArray.length, byteArray.getStringExpression()._length());
+			
+			
+			ElementInfo objRef = th.getHeap().newArray("Byte", 1, th);
+			/*
+			 * dummy
+			 * Array
+			 * Object
+			 */
+			sf.push(objRef.getObjectRef(), true);
+			sf.setOperandAttr(byteArray);
+		}
 	}
 
 	private boolean handleCharAt (JVMInvokeInstruction invInst, ThreadInfo th) {
