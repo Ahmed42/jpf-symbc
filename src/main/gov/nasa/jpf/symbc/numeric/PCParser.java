@@ -37,6 +37,7 @@
 
 package gov.nasa.jpf.symbc.numeric;
 
+import gov.nasa.jpf.symbc.ParsableConstraint;
 import gov.nasa.jpf.symbc.SymbolicInstructionFactory;
 import gov.nasa.jpf.symbc.arrays.ArrayConstraint;
 import gov.nasa.jpf.symbc.arrays.ArrayExpression;
@@ -45,6 +46,9 @@ import gov.nasa.jpf.symbc.arrays.RealArrayConstraint;
 import gov.nasa.jpf.symbc.arrays.RealStoreExpression;
 import gov.nasa.jpf.symbc.arrays.SelectExpression;
 import gov.nasa.jpf.symbc.arrays.StoreExpression;
+import gov.nasa.jpf.symbc.arrays.StringByteArrayExpression;
+import gov.nasa.jpf.symbc.mixednumstrg.SpecialIntegerExpression;
+import gov.nasa.jpf.symbc.mixednumstrg.SpecialOperator;
 import gov.nasa.jpf.symbc.numeric.solvers.IncrementalListener;
 import gov.nasa.jpf.symbc.numeric.solvers.IncrementalSolver;
 import gov.nasa.jpf.symbc.numeric.solvers.ProblemCoral;
@@ -55,6 +59,23 @@ import gov.nasa.jpf.symbc.numeric.solvers.ProblemZ3BitVector;
 import gov.nasa.jpf.symbc.numeric.solvers.ProblemZ3BitVectorIncremental;
 import gov.nasa.jpf.symbc.numeric.solvers.ProblemZ3Incremental;
 import gov.nasa.jpf.symbc.numeric.solvers.ProblemZ3Optimize;
+import gov.nasa.jpf.symbc.string.DerivedStringExpression;
+import gov.nasa.jpf.symbc.string.StringComparator;
+import gov.nasa.jpf.symbc.string.StringConstant;
+import gov.nasa.jpf.symbc.string.StringConstraint;
+import gov.nasa.jpf.symbc.string.StringExpression;
+import gov.nasa.jpf.symbc.string.StringOperator;
+import gov.nasa.jpf.symbc.string.StringSymbolic;
+import gov.nasa.jpf.symbc.string.SymbolicCharAtInteger;
+import gov.nasa.jpf.symbc.string.SymbolicIndexOf2Integer;
+import gov.nasa.jpf.symbc.string.SymbolicIndexOfChar2Integer;
+import gov.nasa.jpf.symbc.string.SymbolicIndexOfCharInteger;
+import gov.nasa.jpf.symbc.string.SymbolicIndexOfInteger;
+import gov.nasa.jpf.symbc.string.SymbolicLastIndexOf2Integer;
+import gov.nasa.jpf.symbc.string.SymbolicLastIndexOfChar2Integer;
+import gov.nasa.jpf.symbc.string.SymbolicLastIndexOfCharInteger;
+import gov.nasa.jpf.symbc.string.SymbolicLastIndexOfInteger;
+import gov.nasa.jpf.symbc.string.SymbolicLengthInteger;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -63,6 +84,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
+
+import com.microsoft.z3.BoolExpr;
+import com.microsoft.z3.SeqExpr;
+import com.microsoft.z3.SeqSort;
 
 
 // parses PCs
@@ -74,14 +99,14 @@ public class PCParser {
   //static Boolean result; // tells whether result is satisfiable or not
   static int tempVars = 0; //Used to construct "or" clauses
 
-
+  static public Map<StringSymbolic, Object> symStringVar = new HashMap<StringSymbolic,Object>();
   
   //	 Converts IntegerExpression's into DP's IntExp's
   static Object getExpression(IntegerExpression eRef) {
     assert eRef != null;
     assert !(eRef instanceof IntegerConstant);
 
-    if (eRef instanceof SymbolicInteger) {
+    /*if (eRef instanceof SymbolicInteger) {
       Object dp_var = symIntegerVar.get(eRef);
       if (dp_var == null) {
         dp_var = pb.makeIntVar(((SymbolicInteger)eRef).getName(),
@@ -89,7 +114,20 @@ public class PCParser {
         symIntegerVar.put((SymbolicInteger)eRef, dp_var);
       }
       return dp_var;
+    }*/
+    if(eRef instanceof SpecialIntegerExpression) {
+    	SpecialIntegerExpression specialExpr = (SpecialIntegerExpression) eRef;
+    	if(specialExpr.op == SpecialOperator.VALUEOF) {
+    		StringExpression strExprToParse = specialExpr.opr;
+    		
+    		// ctx.stringToInt(arg0)
+    		return pb.makeStringToInt(getExpression(strExprToParse));
+    	}
+    } else if(eRef instanceof SymbolicInteger) {
+    	return getExpression((SymbolicInteger) eRef);
     }
+    
+    
 
     Operator    opRef;
     IntegerExpression	e_leftRef;
@@ -237,6 +275,7 @@ public class PCParser {
     assert eRef != null;
     assert !(eRef instanceof RealConstant);
 
+    
     if (eRef instanceof SymbolicReal) {
       Object dp_var = symRealVar.get(eRef);
       if (dp_var == null) {
@@ -1071,7 +1110,7 @@ getExpression(stoex.value)), newae));
     //result = null;
     tempVars = 0;
 
-    Constraint cRef = pc.header;
+    Constraint cRef = (Constraint) pc.header;
 
     if(pb instanceof IncrementalSolver) {
       //If we use an incremental solver, then we push the context
@@ -1091,7 +1130,7 @@ getExpression(stoex.value)), newae));
         if(addConstraint(cRef) == false) {
           return null;
         }
-        cRef = cRef.and;
+        cRef = (Constraint) cRef.and();
       }
     }
 
@@ -1153,6 +1192,7 @@ getExpression(stoex.value)), newae));
 
 	    symRealVar = new HashMap<SymbolicReal,Object>();
 	    symIntegerVar = new HashMap<SymbolicInteger,Object>();
+	    symStringVar = new HashMap<StringSymbolic,Object>();
 	    //result = null;
 	    tempVars = 0;
 
@@ -1168,7 +1208,7 @@ getExpression(stoex.value)), newae));
 	    return pb;
 	  }
   
-  public static Object parseToDPConstraint(Constraint constraint, ProblemGeneral pbtosolve) {
+  public static Object parseToDPConstraint(ParsableConstraint constraint, ProblemGeneral pbtosolve) {
 	    pb=pbtosolve;
 	    
 	    //Constraint constraint = pc.header;
@@ -1188,7 +1228,7 @@ getExpression(stoex.value)), newae));
 	    		newDPConstraint = buildDPRealArrayConstraint((RealArrayConstraint)constraint);
 	    	} else if(constraint instanceof LogicalGroupingConstraint) {
 	    		LogicalGroupingConstraint logicalGroupedConstraint = ((LogicalGroupingConstraint) constraint);
-	    		List<Constraint> groupedConstraints = logicalGroupedConstraint.getList();
+	    		List<ParsableConstraint> groupedConstraints = logicalGroupedConstraint.getList();
 	    		
 	    		Object groupedDPConstraints = parseToDPConstraint(groupedConstraints.get(0), pb);
 	    		
@@ -1217,6 +1257,8 @@ getExpression(stoex.value)), newae));
 	    		}
 	    		
 	    		newDPConstraint = groupedDPConstraints;
+	    	} else if(constraint instanceof StringConstraint) {
+	    		newDPConstraint = buildDPStringConstraint((StringConstraint) constraint);
 	    	}
 	    	
 	    	if(pb.isFalse(newDPConstraint)) { // unsat
@@ -1229,11 +1271,285 @@ getExpression(stoex.value)), newae));
 	    		dpConstraint = pb.and(dpConstraint, newDPConstraint);
 	    	}
 	    	
-	    	constraint = constraint.and;
+	    	constraint = constraint.and();
 	    }
 	    
 	    return dpConstraint;
 	  }
+  
+  
+  
+  
+  static public Object getExpression(SymbolicInteger exp) {
+	  Object dpExpr = null;
+	  
+	  if(exp instanceof SymbolicCharAtInteger) {
+		  // "some string".at(3);
+		  SymbolicCharAtInteger sExp = (SymbolicCharAtInteger) exp;
+		  
+		  StringExpression sourceExp = sExp.getExpression();
+		  IntegerExpression indexExp = sExp.getIndex();
+		  
+		  //mkAt (SeqExpr s, IntExpr index)
+		  //dpExpr = pb.makeAt(sourceExp, indexExp);
+		  //mkCharAt (SeqExpr s, IntExpr index)
+		  dpExpr = pb.makeCharAt(sourceExp, indexExp);
+		  
+	  } else if(exp instanceof SymbolicIndexOfInteger) {
+		  // "some string".indexOf("str");
+		  SymbolicIndexOfInteger sExp = (SymbolicIndexOfInteger) exp;
+		  StringExpression sourceExp = sExp.getSource();
+		  StringExpression targetExp = sExp.getExpression();
+		  
+		// ctx.mkIndexOf(arg0, arg1, 0);
+		  dpExpr = pb.makeIndexOfStr(sourceExp, targetExp);
+		  
+	  } else if(exp instanceof SymbolicIndexOf2Integer) {
+		  // "some string".indexOf("str", 2);
+		  
+		  SymbolicIndexOf2Integer sExp = (SymbolicIndexOf2Integer) exp;
+		  StringExpression sourceExp = sExp.getSource();
+		  StringExpression targetExp = sExp.getExpression();
+		  IntegerExpression minIndexExp = sExp.getMinIndex();
+		  
+		  // ctx.mkIndexOf(arg0, arg1, arg2);
+		  dpExpr = pb.makeIndexOfStr(sourceExp, targetExp, minIndexExp);
+		  
+	  } else if(exp instanceof SymbolicIndexOfCharInteger) {
+		 // "some string".indexOf(0x41);
+		  
+		  SymbolicIndexOfCharInteger sExp = (SymbolicIndexOfCharInteger) exp;
+		  
+		  StringExpression sourceExp = sExp.getSource();
+		  IntegerExpression targetExp = sExp.getExpression();
+		  
+		// ctx.mkIndexOf(arg0, arg1, 0);
+		  dpExpr = pb.makeIndexOfChar(sourceExp, targetExp);
+		  
+	  } else if(exp instanceof SymbolicIndexOfChar2Integer) {
+		  // "some string".indexOf(0x41, 3);
+		  
+		  SymbolicIndexOfChar2Integer sExp = (SymbolicIndexOfChar2Integer) exp;
+		  
+		  StringExpression sourceExp = sExp.getSource();
+		  IntegerExpression targetExp = sExp.getExpression();
+		  IntegerExpression minIndexExp = sExp.getMinDist();
+		  
+		 // ctx.mkIndexOf(arg0, arg1, arg2);
+		  dpExpr = pb.makeIndexOfChar(sourceExp, targetExp, minIndexExp);
+		  
+	  } else if(exp instanceof SymbolicLastIndexOf2Integer) {
+		  
+	  } else if(exp instanceof SymbolicLastIndexOfChar2Integer) {
+		  
+	  } else if(exp instanceof SymbolicLastIndexOfCharInteger) {
+		  
+	  } else if(exp instanceof SymbolicLastIndexOfInteger) {
+		  
+	  } else if(exp instanceof SymbolicLengthInteger) {
+		  SymbolicLengthInteger sExp = (SymbolicLengthInteger) exp;
+		  
+		  StringExpression strExpr = sExp.getExpression();
+		  
+		  // ctx.mkLength(arg0)
+		  dpExpr = pb.makeLength(getExpression(strExpr));
+	  } else {
+		  dpExpr = symIntegerVar.get(exp);
+	      if (dpExpr == null) {
+	    	  dpExpr = pb.makeIntVar(((SymbolicInteger)exp).getName(),
+	            ((SymbolicInteger)exp)._min, ((SymbolicInteger)exp)._max);
+	        symIntegerVar.put((SymbolicInteger)exp, dpExpr);
+	      }
+	  }
+	  
+	  return dpExpr;
+  }
+  
+  static public Object getExpression(StringExpression exp) {
+	  Object dpExpression = null;
+	  
+	  
+	  if(exp instanceof DerivedStringExpression) {
+		  DerivedStringExpression derivedExp = (DerivedStringExpression) exp;
+		  
+		  StringExpression left = derivedExp.left;
+		  Object leftDP = left != null? getExpression(left) : null;
+		  
+		  StringOperator operator = derivedExp.op;
+		  
+		  StringExpression right = derivedExp.right;
+		  Object rightDP = right != null? getExpression(right) : null;
+		  
+		  Expression[] operands = derivedExp.oprlist;
+		  Object[] operandsDP = null;
+		  
+		  if(operands != null) {
+			  operandsDP = new Object[operands.length];
+			  
+			  for(int i = 0; i < operands.length; i++) {
+				  Expression operand = operands[i];
+				  
+				  if(operand != null) {
+					  if(operand instanceof IntegerConstant) {
+						  operandsDP[i] = pb.makeIntConst(((IntegerConstant) operand).value);
+					  } else if(operand instanceof RealConstant) {
+						  operandsDP[i] = pb.makeRealConst(((RealConstant) operand).value);
+					  } else if(operand instanceof IntegerExpression) {
+						  operandsDP[i] = getExpression((IntegerExpression) operand);
+					  } else if(operand instanceof RealExpression) {
+						  operandsDP[i] = getExpression((RealExpression) operand);
+					  } else if(operand instanceof StringExpression) {
+						  operandsDP[i] = getExpression((StringExpression) operand);
+					  }
+				  }
+			  }
+		  }
+
+		  
+		  switch(operator) {
+			  case CONCAT:
+				    dpExpression = pb.makeConcat(leftDP, rightDP);
+			  		break;
+			  case REPLACE:
+			  		break;
+			  case TRIM:
+			  		break;
+			  case SUBSTRING:
+				   Object originalStrDPExpr = operandsDP[0];
+				   Object startIndexDPExpr = operandsDP[1];
+				   Object endIndexDPExpr = operandsDP[2];
+				   
+				   Object lengthDPExpr = pb.minus(endIndexDPExpr, startIndexDPExpr);
+				   
+				   dpExpression = pb.makeSubstring(originalStrDPExpr, startIndexDPExpr, lengthDPExpr);
+				  
+			  		break;
+			  case REPLACEFIRST:
+				  // ctx.mkReplace(arg0, arg1, arg2) 
+			  		break;
+			  case REPLACEALL:  
+			  		break;
+			  case TOLOWERCASE:
+			  		break;
+			  case TOUPPERCASE:
+			  		break;
+			  case VALUEOF:
+				  	Object numDPExpr = operandsDP[0];
+				  	
+				  	if(operands[0] instanceof IntegerExpression) {
+				  		dpExpression = pb.makeIntToString(numDPExpr);
+				  	}
+				  	
+			  		break;
+		  }
+		  
+		  
+	  } else if (exp instanceof StringConstant) {
+		  StringConstant strExp = (StringConstant) exp;
+		  dpExpression = pb.makeStringConst(strExp.value);
+		  
+	  } else if(exp instanceof StringSymbolic) {
+		  StringSymbolic strSymExp = (StringSymbolic) exp;
+		  
+		  dpExpression = symStringVar.get(strSymExp);
+		  
+		  if(dpExpression == null) {
+			//IntegerExpression lengthExpr = strSymExp._length();
+			//Object lengthDPExpr = getExpression(lengthExpr);
+			
+			dpExpression = pb.makeStringVar(strSymExp.getName());
+			symStringVar.put(strSymExp, dpExpression);
+		  }
+		  
+	  } else {
+		  assert(false);
+	  }
+	  
+	  return dpExpression;
+  }
+  
+  static public Object buildDPStringConstraint(StringConstraint constraint) {
+	  
+	  StringExpression left = constraint.getLeft();
+	  Object leftDP = left == null? null : getExpression(left);
+	  
+	  StringComparator comp = constraint.getComparator();
+	  
+	  StringExpression right = constraint.getRight();
+	  Object rightDP = right == null? null : getExpression(right);
+	  
+	  Object constraintDP = null;
+	  
+	  switch(comp) {
+	  	case EQ:
+	  	case EQUALS:
+	  		constraintDP = pb.eq(leftDP, rightDP);
+	  		break;
+	  	case NE:
+	  	case NOTEQUALS:
+	  		constraintDP = pb.neq(leftDP, rightDP);
+	  		break;
+	  	case EQUALSIGNORECASE:
+	  		break;
+	  	case NOTEQUALSIGNORECASE:
+	  		break;
+	  	case STARTSWITH:
+	  		constraintDP = pb.makeStartsWith(leftDP, rightDP);
+	  		break;
+	  	case NOTSTARTSWITH:
+	  		constraintDP = pb.not(pb.makeStartsWith(leftDP, rightDP));
+	  		break;
+	  	case ENDSWITH:
+	  		constraintDP = pb.makeEndsWith(leftDP, rightDP);
+	  		break;
+	  	case NOTENDSWITH:
+	  		constraintDP = pb.not(pb.makeEndsWith(leftDP, rightDP));
+	  		break;
+	  	case CONTAINS:
+	  		constraintDP = pb.makeConstains(leftDP, rightDP);
+	  		break;
+	  	case NOTCONTAINS:
+	  		constraintDP = pb.not(pb.makeConstains(leftDP, rightDP));
+	  		break;
+	  	case ISINTEGER:
+	  		// Use regex to do this
+	  		break;
+	  	case NOTINTEGER:
+	  		break;
+	  	case ISFLOAT:
+	  		break;
+	  	case NOTFLOAT:
+	  		break;
+	  	case ISLONG:
+	  		break;
+	  	case NOTLONG:
+	  		break;
+	  	case ISDOUBLE:
+	  		break;
+	  	case NOTDOUBLE:
+	  		break;
+	  	case ISBOOLEAN:
+	  		break;
+	  	case NOTBOOLEAN:
+	  		break;
+	  	case EMPTY:
+	  		constraintDP = pb.makeIsEmpty(rightDP);
+	  		break;
+	  	case NOTEMPTY:
+	  		constraintDP = pb.not(pb.makeIsEmpty(rightDP));
+	  		break;
+	  	case MATCHES:
+	  		break;
+	  	case NOMATCHES:
+	  		break;
+	  	case REGIONMATCHES:
+	  		break;
+	  	case NOREGIONMATCHES:
+	  		break;
+	  } 
+	  
+	  return constraintDP;
+  }
   
   
   static public Object buildDPMixedConstraint(MixedConstraint cRef) {
@@ -1380,6 +1696,7 @@ getExpression(stoex.value)), newae));
 	    return dpConstraint;
   }
   
+  // TODO: add getExpression()s to parse subclasses of SymbolicInteger (e.g., SymbolicCharAtInteger)
   static public Object buildDPLinearIntegerConstraint(LinearIntegerConstraint cRef) {
 	  Comparator c_compRef = cRef.getComparator();
 
@@ -1621,23 +1938,92 @@ getExpression(stoex.value)), newae));
 	            if (selex != null && sel_right != null) {
 	                // The array constraint is a select
 	                ArrayExpression ae = (ArrayExpression) selex.arrayExpression;
+	                if(ae instanceof StringByteArrayExpression) {
+	                	// stringExpr[indexExpr] == sel_right
+	                	
+	                	IntegerExpression indexExpr = selex.indexExpression;
+	                	StringExpression stringExpr = ((StringByteArrayExpression) ae).getStringExpression();
+	                	
+	                	Object indexDPExpr;
+	                	
+	                	if(indexExpr instanceof IntegerConstant) {
+	                		indexDPExpr = pb.makeIntConst(((IntegerConstant) indexExpr).value);
+	                	} else {
+	                		indexDPExpr = getExpression(indexExpr);
+	                	}
+	                	
+	                	// stringExpr[indexExpr]
+	                	Object selectedCharDPExpr = pb.makeCharAt(getExpression(stringExpr), indexDPExpr);
+	                	
+	                	Object rightSideDPExpr;
+	                	
+	                	if(sel_right instanceof IntegerConstant) {
+	                		rightSideDPExpr = pb.makeIntConst(((IntegerConstant) sel_right).value);
+	                	} else {
+	                		rightSideDPExpr = getExpression(sel_right);
+	                	}
+	                	
+	                	return pb.eq(selectedCharDPExpr, rightSideDPExpr);
+	                			
+	                } else {
+	                
+	                
 	                return pb.eq(pb.select(pb.makeArrayVar(ae.getName()),
 	                  (selex.indexExpression instanceof IntegerConstant) ? pb.makeIntConst(((IntegerConstant)selex.indexExpression).value) :
 	getExpression(selex.indexExpression)),
 	                  (sel_right instanceof IntegerConstant) ? pb.makeIntConst(((IntegerConstant)sel_right).value) :
 	getExpression(sel_right));
 	                
+	                }
+	                
 	            }
 	            if (stoex != null && sto_right != null) {
 	                // The array constraint is a store
 	                ArrayExpression ae = (ArrayExpression) stoex.arrayExpression;
 	                ArrayExpression newae = (ArrayExpression) sto_right;
-	                return pb.eq(pb.store(pb.makeArrayVar(ae.getName()),
-	                  (stoex.indexExpression instanceof IntegerConstant) ? pb.makeIntConst(((IntegerConstant)stoex.indexExpression).value) :
-	getExpression(stoex.indexExpression),
-	                  (stoex.value instanceof IntegerConstant) ? pb.makeIntConst(((IntegerConstant)stoex.value).value) :
-	getExpression(stoex.value)),
-	                   pb.makeArrayVar(newae.getName()));
+	                
+	                if(ae instanceof StringByteArrayExpression) {
+	                	// (stringExpression[indexExpr] = value) == sto_right
+	                	StringExpression stringExpression = ((StringByteArrayExpression) ae).getStringExpression();	                	
+	                	IntegerExpression indexExpr = stoex.indexExpression;
+	                	IntegerExpression value = stoex.value;
+	                	
+	                	Object indexDPExpr;
+	                	
+	                	if(indexExpr instanceof IntegerConstant) {
+	                		indexDPExpr = pb.makeIntConst(((IntegerConstant) indexExpr).value);
+	                	} else {
+	                		indexDPExpr = getExpression(indexExpr);
+	                	}
+	                	
+	                	Object valueDPExpr;
+	                	
+	                	if(value instanceof IntegerConstant) {
+	                		valueDPExpr = pb.makeIntConst(((IntegerConstant) value).value);
+	                	} else {
+	                		valueDPExpr = getExpression(value);
+	                	}
+	                	
+	                	Object storeCharAtDPExpr = pb.makeStoreCharAt(getExpression(stringExpression), indexDPExpr, valueDPExpr);
+	                	
+	                    assert(newae instanceof StringByteArrayExpression);
+	                	
+	                	StringByteArrayExpression rightSideExpr = (StringByteArrayExpression) newae;
+	                	
+	                	Object rightSideDPExpr = getExpression(rightSideExpr.getStringExpression());
+	                	
+	                	return pb.eq(storeCharAtDPExpr, rightSideDPExpr);
+	                	
+	                } else {
+	                	return pb.eq(pb.store(pb.makeArrayVar(ae.getName()),
+	      	                  (stoex.indexExpression instanceof IntegerConstant) ? pb.makeIntConst(((IntegerConstant)stoex.indexExpression).value) :
+	      	getExpression(stoex.indexExpression),
+	      	                  (stoex.value instanceof IntegerConstant) ? pb.makeIntConst(((IntegerConstant)stoex.value).value) :
+	      	getExpression(stoex.value)),
+	      	                   pb.makeArrayVar(newae.getName()));
+	                }
+	                
+	                
 	                
 	            }
 	            if (initex != null) {
