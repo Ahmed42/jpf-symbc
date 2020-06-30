@@ -167,7 +167,8 @@ public class IASTORE extends gov.nasa.jpf.jvm.bytecode.IASTORE {
                       frame.pop();
                   }
                   // We create a new arrayAttr, and inherits information from the previous attribute
-                  ArrayExpression newArrayAttr = new ArrayExpression(arrayAttr);
+                  //ArrayExpression newArrayAttr = new ArrayExpression(arrayAttr);
+		          ArrayExpression newArrayAttr = arrayAttr.makeCopy();
                   frame.pop(2); // We pop the array and the index
 
                   StoreExpression se = new StoreExpression(arrayAttr, indexAttr, sym_value);

@@ -161,7 +161,8 @@ public class LASTORE extends gov.nasa.jpf.jvm.bytecode.LASTORE {
                       sym_value = (IntegerExpression)frame.getOperandAttr(0);
                       frame.popLong();
                   }
-                  ArrayExpression newArrayAttr = new ArrayExpression(arrayAttr);
+                  //ArrayExpression newArrayAttr = new ArrayExpression(arrayAttr);
+		          ArrayExpression newArrayAttr = arrayAttr.makeCopy();
                   frame.pop(2); // We pop the array and the index
 
                   StoreExpression se = new StoreExpression(arrayAttr, indexAttr, sym_value);
