@@ -39,7 +39,7 @@ public abstract class NumericConstraintTranslator extends NormalFormTranslator<C
 		if (instance == null)
 			return collection;
 		collection.add(transform(instance));
-		return transformChain(instance.getTail(), collection);
+		return transformChain((Constraint) instance.getTail(), collection);
 	}
 
 	static class IntermediateConstraint {

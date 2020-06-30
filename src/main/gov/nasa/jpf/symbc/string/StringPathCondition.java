@@ -95,11 +95,13 @@ public class StringPathCondition {
 
 		    t = new StringConstraint(c, r);
 
-		    if (!hasConstraint(t)) {
+		    /*if (!hasConstraint(t)) {
 		      t.and = header;
 		      header = t;
 		      count++;
-		    }
+		    }*/
+		    
+		    npc._addDet(t);
 		  }
 
 	  public void _addDet(StringComparator c, StringExpression l, StringExpression r) {
@@ -109,21 +111,25 @@ public class StringPathCondition {
 
 	    t = new StringConstraint(r, c, l);
 
-	    if (!hasConstraint(t)) {
+	    /*if (!hasConstraint(t)) {
 	      t.and = header;
 	      header = t;
 	      count++;
-	    }
+	    }*/
+	    
+	    npc._addDet(t);
 	  }
 	  
 	  public void _addDet(StringConstraint t) {
 		  flagSolved = false;
 		  
-		  if(!hasConstraint(t)) {
+		  /*if(!hasConstraint(t)) {
 			  t.and = header;
 		      header = t;
 		      count++;
-		  }
+		  }*/
+		  
+		  npc._addDet(t);
 	  }
 
 	  public int count() {
@@ -138,22 +144,24 @@ public class StringPathCondition {
 	        return true;
 	      }
 
-	      t = t.and;
+	      t = (StringConstraint) t.and;
 	    }
 	    return false;
 	  }
 
 	  public boolean solve() {// warning: solve calls simplify
-		  SymbolicStringConstraintsGeneral solver = new SymbolicStringConstraintsGeneral();
+		  /*SymbolicStringConstraintsGeneral solver = new SymbolicStringConstraintsGeneral();
 		  boolean result = solver.isSatisfiable(this);
 		  StringPathCondition.flagSolved = result;
-		  return result;
+		  return result;*/
+		  return false;
 	  }
 
 	  public boolean simplify() {
-	    SymbolicStringConstraintsGeneral solver = new SymbolicStringConstraintsGeneral();
+	    /*SymbolicStringConstraintsGeneral solver = new SymbolicStringConstraintsGeneral();
 	    boolean result = solver.isSatisfiable(this);
-	    return result;
+	    return result;*/
+		  return false;
 	  }
 
 	  public String stringPC() {

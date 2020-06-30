@@ -39,14 +39,16 @@ package gov.nasa.jpf.symbc.numeric;
 
 import java.util.Map;
 
-public abstract class Constraint implements Comparable<Constraint> {
+import gov.nasa.jpf.symbc.ParsableConstraint;
+
+public abstract class Constraint implements Comparable<Constraint>, ParsableConstraint {
   private final Expression left;
 
   private Comparator comp;
 
   private final Expression right;
 
-  public Constraint and;
+  public ParsableConstraint and;
 
   public Constraint(Expression l, Comparator c, Expression r) {
     left = l;
@@ -85,10 +87,14 @@ public abstract class Constraint implements Comparable<Constraint> {
   /**
    * Returns the next conjunct.
    */
-  public Constraint getTail() {
+  public ParsableConstraint getTail() {
     return and;
   }
 
+  public ParsableConstraint and() {
+	  return and;
+  }
+  
   public String stringPC() {
     return left.stringPC() + comp.toString() + right.stringPC()
         + ((and == null) ? "" : " && " + and.stringPC());
@@ -163,10 +169,10 @@ public abstract class Constraint implements Comparable<Constraint> {
         + ((and == null) ? "" : " &&\n" + and.toString());
   }
 
-  public Constraint last() {
-      Constraint c= this;
-      while(c.and != null) {
-          c = c.and;
+  public ParsableConstraint last() {
+	  ParsableConstraint c= this;
+      while(c.and() != null) {
+          c = c.and();
       }
       return c;
   }
@@ -209,6 +215,10 @@ public abstract class Constraint implements Comparable<Constraint> {
 		}
 		if(and!=null) result = result +"\n" + and.prefix_notationPC4Z3();
 		return result;
+	}
+	
+	public void setAnd(ParsableConstraint t) {
+		and = t;
 	}
 
 }

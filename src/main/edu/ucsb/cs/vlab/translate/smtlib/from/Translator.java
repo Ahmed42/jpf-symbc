@@ -34,7 +34,7 @@ public class Translator<Manager extends TranslationManager> {
 	
 	public String translate(final StringPathCondition spc, final HashSet<String> additional_declaration, final HashSet<String> additional_assertions) {	
 		final StringConstraint strc = spc.header;
-		final Constraint npc = spc.getNpc().header;
+		final Constraint npc = (Constraint) spc.getNpc().header;
 
 		final String header = getHeader();
 		
@@ -81,7 +81,7 @@ public class Translator<Manager extends TranslationManager> {
 	}
 	
 	public String translate(final PathCondition pc, final HashSet<String> additional_declaration, final HashSet<String> additional_assertions) {	
-		final Constraint npc = pc.header;
+		final Constraint npc = (Constraint) pc.header;
 
 		final String header = getHeader();
 		

@@ -471,10 +471,10 @@ public class SymbolicStringConstraintsGeneral {
 			if (sc != null) {
 				
 				boolean result = process (sc);
-				sc = sc.and;
+				sc = (StringConstraint) sc.and;
 				while (result == true && sc != null) {
 					result = process (sc);
-					sc = sc.and;
+					sc = (StringConstraint) sc.and;
 				}
 				/* check if there was a timeout */
 				checkTimeOut();
@@ -487,12 +487,12 @@ public class SymbolicStringConstraintsGeneral {
 			 * to a subgraph and add it to the global_graph
 			 */
 			
-			Constraint constraint = pc.getNpc().header;
+			Constraint constraint = (Constraint) pc.getNpc().header;
 			//println ("[isSatisfiable] Int cons given:" + pc.npc.header);
 			while (constraint != null) {
 				processIntegerConstraint(constraint.getLeft(), constraint.getComparator(), constraint.getRight(), constraint);
 				processIntegerConstraint(constraint.getRight(), constraint.getComparator(), constraint.getLeft(), constraint);
-				constraint = constraint.getTail();
+				constraint = (Constraint) constraint.getTail();
 				//println ("Constraints: " + pc.npc.header + "\nDone");
 				/* check if there was a timeout */
 				checkTimeOut();

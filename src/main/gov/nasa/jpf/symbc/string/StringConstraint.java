@@ -50,6 +50,7 @@ TERMINATION OF THIS AGREEMENT.
 
 package gov.nasa.jpf.symbc.string;
 
+import gov.nasa.jpf.symbc.ParsableConstraint;
 import gov.nasa.jpf.symbc.numeric.ConstraintExpressionVisitor;
 import gov.nasa.jpf.symbc.numeric.visitors.CollectVariableVisitor;
 
@@ -57,14 +58,14 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public class StringConstraint {
+public class StringConstraint implements ParsableConstraint {
   StringExpression left;
 
   StringComparator comp;
 
   StringExpression right;
 
-  StringConstraint and;
+  ParsableConstraint and;
 
   public StringConstraint(StringExpression l, StringComparator c, StringExpression r) {
     left = l;
@@ -86,7 +87,8 @@ public class StringConstraint {
       comp = original.comp;
       right = original.right;
       if (original.and!= null){
-        and = new StringConstraint(original.and);
+        //and = new StringConstraint(original.and);
+    	  and = original.and.makeCopy();
       }
     }
 
@@ -176,7 +178,7 @@ public class StringConstraint {
 	  return right;
   }
   
-  public StringConstraint and () {
+  public ParsableConstraint and () {
 	  return and;
   }
   
@@ -198,5 +200,53 @@ public class StringConstraint {
 		right.accept(visitor);
 	    if (and!=null) and.accept(visitor);
 			visitor.postVisit(this);
+	}
+
+	@Override
+	public ParsableConstraint makeCopy() {
+		return new StringConstraint(this);
+	}
+
+	@Override
+	public String prefix_notation() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public String prefix_notationPC4Z3() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	
+	public void setAnd(ParsableConstraint t) {
+		and = t;
+	}
+	
+	public ParsableConstraint getTail() {
+		return and;
+	}
+	
+	public void setComparator(StringComparator c) {
+		comp = c;
+	}
+	
+	public ParsableConstraint last() {
+		  ParsableConstraint c= this;
+	      while(c.and() != null) {
+	          c = c.and();
+	      }
+	      return c;
+	  }
+	
+	public int compareTo(StringConstraint c) {
+		int r = comp.compareTo(c.getComparator());
+		if (r == 0) {
+			r = left.compareTo(c.getLeft());
+			if (r == 0) {
+				r = right.compareTo(c.getRight());
+			}
+		}
+		return r;
 	}
 }

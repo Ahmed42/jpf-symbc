@@ -51,7 +51,7 @@ public abstract class StringConstraintTranslator extends NormalFormTranslator<St
 			return collection;
 		final String transformed = transform(instance);
 		collection.add(transformed);
-		return transformChain(instance.and(), collection);
+		return transformChain((StringConstraint) instance.and(), collection);
 	}
 
 	public String collect(StringConstraint instance) {

@@ -27,6 +27,7 @@ import za.ac.sun.cs.green.expr.Expression;
 import za.ac.sun.cs.green.expr.IntConstant;
 import za.ac.sun.cs.green.expr.IntVariable;
 import za.ac.sun.cs.green.expr.Operation;
+import gov.nasa.jpf.symbc.ParsableConstraint;
 import gov.nasa.jpf.symbc.SymbolicInstructionFactory;
 import gov.nasa.jpf.symbc.numeric.BinaryLinearIntegerExpression;
 import gov.nasa.jpf.symbc.numeric.Constraint;
@@ -38,7 +39,7 @@ public class SolverTranslator {
 
 	private static Map<ConstraintSequence, Instance> instanceCache = new HashMap<ConstraintSequence, Instance>();
 
-	public static Instance createInstance(Constraint c) {
+	public static Instance createInstance(ParsableConstraint c) {
 
 		Expression e = null;
 
@@ -54,7 +55,7 @@ public class SolverTranslator {
 				e = new Operation(Operation.Operator.AND, e, tmp);
 			}
 
-			c = c.and;
+			c = c.and();
 		}
 
 		Instance greenPC = new Instance(SymbolicInstructionFactory.greenSolver, null, e);
@@ -95,8 +96,8 @@ public class SolverTranslator {
 				if (!s.equals(z)) {
 					return false;
 				}
-				s = s.getTail();
-				z = z.getTail();
+				s = (Constraint) s.getTail();
+				z = (Constraint) z.getTail();
 			}
 			return (s == null) && (z == null);
 		}
@@ -107,7 +108,7 @@ public class SolverTranslator {
 			Constraint s = sequence;
 			while (s != null) {
 				h ^= s.hashCode();
-				s = s.getTail();
+				s = (Constraint) s.getTail();
 			}
 			return h;
 		}

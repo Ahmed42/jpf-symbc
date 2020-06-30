@@ -282,10 +282,10 @@ public class SymbolicStringConstraintsGeneralToText {
 		 */
 		if (sc != null) {
 			boolean result = process (sc);
-			sc = sc.and;
+			sc = (StringConstraint) sc.and;
 			while (result == true && sc != null) {
 				result = process (sc);
-				sc = sc.and;
+				sc = (StringConstraint) sc.and;
 			}
 		}
 		
@@ -293,7 +293,7 @@ public class SymbolicStringConstraintsGeneralToText {
 		 * to a subgraph and add it to the global_graph
 		 */
 		
-		Constraint constraint = pc.getNpc().header;
+		Constraint constraint = (Constraint) pc.getNpc().header;
 		//println ("[isSatisfiable] Int cons given:" + pc.npc.header);
 		while (constraint != null) {
 			//First solve any previous integer constriants
@@ -301,7 +301,7 @@ public class SymbolicStringConstraintsGeneralToText {
 			
 			processIntegerConstraint(constraint.getLeft());
 			processIntegerConstraint(constraint.getRight());
-			constraint = constraint.getTail();
+			constraint = (Constraint) constraint.getTail();
 		}
 		
 		//First solve any previous integer constriants

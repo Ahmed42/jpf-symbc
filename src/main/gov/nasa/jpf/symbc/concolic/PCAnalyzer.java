@@ -22,6 +22,7 @@ import java.util.ArrayList;
 
 import gov.nasa.jpf.symbc.SymbolicInstructionFactory;
 import gov.nasa.jpf.symbc.numeric.*;
+import gov.nasa.jpf.symbc.ParsableConstraint;
 
 public class PCAnalyzer {
 
@@ -69,7 +70,7 @@ public class PCAnalyzer {
 		if (pc == null || pc.header == null) return true;
 		boolean result = false;
 		PathCondition working_pc = pc.make_copy();
-		Constraint working_pc_last = working_pc.last();
+		ParsableConstraint working_pc_last = working_pc.last();
 
 		// reset the values of the various helper PCs
 		simplePC = null;
@@ -111,11 +112,14 @@ public class PCAnalyzer {
 						System.out.println("--- end printing extra PC ---");
 					}
 
-					Constraint cRef = extraPC.header;
+					ParsableConstraint cRef = extraPC.header;
 					int length = extraPC.count();
 					while (cRef != null) {
-						cRef.setComparator(Comparator.GT); // TODO: should be NE but choco can not handle it
-						cRef=cRef.and;
+						if(cRef instanceof Constraint) {
+							((Constraint) cRef).setComparator(Comparator.GT); // TODO: should be NE but choco can not handle it
+						} 
+						
+						cRef=cRef.and();
 					}
 					working_pc.prependAllConjuncts(extraPC.header);
 				}
@@ -184,7 +188,7 @@ public class PCAnalyzer {
 					result = mixedIsSatisfiable(working_pc, solver);
 
 					if(working_pc_last!=null)
-						working_pc_last.and = null; // remove the conjuncts added from the partitions
+						working_pc_last.setAnd(null); // remove the conjuncts added from the partitions
 
 					if(result)
 						//solver.solve(getSimplifiedPC());
@@ -213,7 +217,7 @@ public class PCAnalyzer {
 	 */
 	public void splitPathCondition(PathCondition pc) {
 		PathCondition newPC = pc.make_copy();
-		Constraint cRef = newPC.header;
+		ParsableConstraint cRef = newPC.header;
 		simplePC = new PathCondition();
 		concolicPC = new PathCondition();
 
@@ -235,7 +239,7 @@ public class PCAnalyzer {
 			} else	{
 				throw new RuntimeException("## Error: Constraint not handled " + cRef);
 			}
-			cRef = cRef.and;
+			cRef = cRef.and();
 		}
 		if (SymbolicInstructionFactory.debugMode) {
 			System.out.println("--------begin after splitting------------");
@@ -399,7 +403,7 @@ public class PCAnalyzer {
 		// with their execution results with simplePC arguments
 
 		//PathCondition simplifiedPC = new PathCondition();
-		Constraint cRef = concolicPC.header;
+		Constraint cRef = (Constraint) concolicPC.header;
 
 		extraPC = new PathCondition();
 		while (cRef != null) {

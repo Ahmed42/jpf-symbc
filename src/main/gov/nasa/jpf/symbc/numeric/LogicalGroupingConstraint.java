@@ -3,8 +3,10 @@ package gov.nasa.jpf.symbc.numeric;
 import java.util.ArrayList;
 import java.util.List;
 
+import gov.nasa.jpf.symbc.ParsableConstraint;
+
 public class LogicalGroupingConstraint extends Constraint {
-	private List<Constraint> list;
+	private List<ParsableConstraint> list;
 	private Operator operator;
 	public boolean negated;
 	
@@ -13,7 +15,7 @@ public class LogicalGroupingConstraint extends Constraint {
 	
 	public LogicalGroupingConstraint() {
 		super(null, null, null);
-		list = new ArrayList<Constraint>();
+		list = new ArrayList<ParsableConstraint>();
 		negated = false;
 	}
 	
@@ -24,20 +26,20 @@ public class LogicalGroupingConstraint extends Constraint {
 		this.negated = lgc.negated;
 	}
 	
-	public LogicalGroupingConstraint(List<Constraint> l, Operator op, boolean negated) {
+	public LogicalGroupingConstraint(List<ParsableConstraint> l, Operator op, boolean negated) {
 		super(null, null, null);
 		this.list = l; // Shallow
 		this.operator = op;
 		this.negated = negated;
 	}
 	
-	public LogicalGroupingConstraint(List<Constraint> l, Operator op) {
+	public LogicalGroupingConstraint(List<ParsableConstraint> l, Operator op) {
 		this(l, op, false);
 	}
 	
 	public LogicalGroupingConstraint(Operator op, boolean negated) {
 		super(null, null, null);
-		this.list = new ArrayList<Constraint>();
+		this.list = new ArrayList<ParsableConstraint>();
 		this.negated = negated;
 		this.operator = op;
 	}
@@ -59,10 +61,10 @@ public class LogicalGroupingConstraint extends Constraint {
     	return copy;
 	}
 	
-	public List<Constraint> getList() { return list; }
+	public List<ParsableConstraint> getList() { return list; }
 	public Operator getOperator() { return operator; }
 	
-	public void addToList(Constraint constraint) {
+	public void addToList(ParsableConstraint constraint) {
 		//if(!list.contains(constraint)) {
 			list.add(constraint);
 		//}
@@ -82,7 +84,7 @@ public class LogicalGroupingConstraint extends Constraint {
 			return "";
 		}
 		
-		Constraint con = list.get(0);
+		ParsableConstraint con = list.get(0);
 		
 		sb.append(negated? "~" : "");
 		

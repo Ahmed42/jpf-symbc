@@ -53,11 +53,14 @@ import gov.nasa.jpf.symbc.arrays.SelectExpression;
 import gov.nasa.jpf.symbc.concolic.PCAnalyzer;
 import gov.nasa.jpf.symbc.numeric.solvers.SolverTranslator;
 import gov.nasa.jpf.symbc.numeric.visitors.CollectVariableVisitor;
+import gov.nasa.jpf.symbc.string.StringConstraint;
 import gov.nasa.jpf.symbc.string.StringPathCondition;
 import gov.nasa.jpf.symbc.concolic.*;
 import gov.nasa.jpf.vm.ChoiceGenerator;
 import gov.nasa.jpf.vm.MJIEnv;
 import gov.nasa.jpf.vm.VM;
+
+import gov.nasa.jpf.symbc.ParsableConstraint;
 
 // path condition contains mixed constraints of integers and reals
 
@@ -69,7 +72,7 @@ public class PathCondition implements Comparable<PathCondition> {
 
     public HashMap<String, ArrayExpression> arrayExpressions;
 
-    public Constraint header;
+    public ParsableConstraint header;
     int count = 0;
     protected int solverCalls = 0;
 
@@ -159,7 +162,7 @@ public class PathCondition implements Comparable<PathCondition> {
         if (!this.hasConstraint(loic)) {
             flagSolved = false;
             Constraint t = (Constraint) loic;
-            t.and = header;
+            t.setAnd(header);
             header = t;
             count++;
         }
@@ -248,6 +251,17 @@ public class PathCondition implements Comparable<PathCondition> {
         prependUnlessRepeated(t);
 
     }
+    
+    public void _addDet(StringConstraint constraint) {
+    	
+    	flagSolved = false;
+    	
+    	if (!hasConstraint(constraint)) {
+    		  constraint.setAnd(header);
+		      header = constraint;
+		      count++;
+		}
+    }
 
     /**
      * Prepends the given constraint to this path condition, unless the constraint
@@ -255,11 +269,11 @@ public class PathCondition implements Comparable<PathCondition> {
      *
      * Returns whether the condition was extended with the constraint.
      */
-    public boolean prependUnlessRepeated(Constraint t) {
+    public boolean prependUnlessRepeated(ParsableConstraint t) {
         // if Green is used and slicing is on then we always add the constraint
         // since we assume the last constraint added is always the header
         if ((SymbolicInstructionFactory.greenSolver != null) || !hasConstraint(t)) {
-            t.and = header;
+            t.setAnd(header);
             header = t;
             count++;
             return true;
@@ -268,21 +282,21 @@ public class PathCondition implements Comparable<PathCondition> {
         }
     }
 
-    public void prependAllConjuncts(Constraint t) {
-    	//flagSolved = false; // TODO might need to remove
-    	
-        t.last().and = header;
+    public void prependAllConjuncts(ParsableConstraint t) {
+    	flagSolved = false;
+        t.last().setAnd(header);
         header = t;
         count = length(header);
     }
 
-    public void appendAllConjuncts(Constraint t) {
-        Constraint tmp = header.last();
-        tmp.and = t;
+    public void appendAllConjuncts(ParsableConstraint t) {
+    	flagSolved = false;
+    	ParsableConstraint tmp = header.last();
+        tmp.setAnd(t);
         count = length(header);
     }
 
-    private static int length(Constraint c) {
+    private static int length(ParsableConstraint c) {
         int x = 0;
         while (c != null) {
             x++;
@@ -301,26 +315,26 @@ public class PathCondition implements Comparable<PathCondition> {
     /**
      * Returns whether this path condition contains the constraint.
      */
-    public boolean hasConstraint(Constraint c) {
-        Constraint t = header;
+    public boolean hasConstraint(ParsableConstraint c) {
+    	ParsableConstraint t = header;
 
         while (t != null) {
             if (c.equals(t)) {
                 return true;
             }
 
-            t = t.and;
+            t = t.and();
         }
 
         return false;
     }
 
-    public Constraint last() {
-        Constraint t = header;
-        Constraint last = null;
+    public ParsableConstraint last() {
+    	ParsableConstraint t = header;
+    	ParsableConstraint last = null;
         while (t != null) {
             last = t;
-            t = t.and;
+            t = t.and();
         }
 
         return last;
@@ -383,8 +397,8 @@ public class PathCondition implements Comparable<PathCondition> {
 
         // modification for string path condition
         
-        boolean result2 = (spc.count() == 0) || spc.solve(); // TODO: to review
-        return result1 && result2;
+        //boolean result2 = (spc.count() == 0) || spc.solve(); // TODO: to review
+        return result1;// && result2;
     }
 
     public boolean simplifyOld() {
@@ -411,8 +425,8 @@ public class PathCondition implements Comparable<PathCondition> {
 
         if (!result1)
             return false;
-        boolean result2 = (spc.count() == 0) || spc.simplify(); // TODO to review: used for strings
-        return result1 && result2;
+        //boolean result2 = (spc.count() == 0) || spc.simplify(); // TODO to review: used for strings
+        return result1;// && result2;
     }
 
     public String stringPC() {
@@ -478,8 +492,8 @@ public class PathCondition implements Comparable<PathCondition> {
         if (count != p.count) {
             return false;
         }
-        Constraint c = header;
-        Constraint pc = p.header;
+        ParsableConstraint c = header;
+        ParsableConstraint pc = p.header;
         while (c != null) {
             if (pc == null) {
                 return false;
@@ -517,13 +531,26 @@ public class PathCondition implements Comparable<PathCondition> {
             return 1;
         } else {
             // perform a lexicographic comparison
-            Constraint c1 = header;
-            Constraint c2 = pc.header;
+        	ParsableConstraint c1 = header;
+        	ParsableConstraint c2 = pc.header;
             while (c1 != null) {
                 if (c2 == null) {
                     return 1;
                 }
-                int r = c1.compareTo(c2);
+                
+                if(c1 instanceof Constraint && c2 instanceof StringConstraint) {
+                	return 1;
+                } else if(c1 instanceof StringConstraint && c2 instanceof Constraint) {
+                	return -1;
+                }
+                
+                int r;
+                if(c1 instanceof Constraint && c2 instanceof Constraint) {
+                	r = ((Constraint) c1).compareTo((Constraint) c2);
+                } else {
+                	r = ((StringConstraint) c1).compareTo((StringConstraint) c2);
+                }
+                
                 if (r != 0) {
                     return r;
                 }
@@ -547,7 +574,7 @@ public class PathCondition implements Comparable<PathCondition> {
     public int hashCode() {
         if (hashCode == null) {
             hashCode = new Integer(0);
-            Constraint c = header;
+            ParsableConstraint c = header;
             while (c != null) {
                 hashCode = hashCode ^ c.hashCode();
                 c = c.getTail();
@@ -572,7 +599,7 @@ public class PathCondition implements Comparable<PathCondition> {
      */
     public void recomputeCount() {
         count = 0;
-        for (Constraint c = header; c != null; c = c.getTail()) {
+        for (ParsableConstraint c = header; c != null; c = c.getTail()) {
             count++;
         }
     }
@@ -583,7 +610,7 @@ public class PathCondition implements Comparable<PathCondition> {
      */
     public void removeHeader() {
         assert header != null;
-        header = header.and;
+        header = header.and();
         count--;
         resetHashCode();
     }
