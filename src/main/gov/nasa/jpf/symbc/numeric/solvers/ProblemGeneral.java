@@ -258,4 +258,79 @@ public abstract class ProblemGeneral{
 	public boolean isFalse(Object exp) {
 		throw new RuntimeException("## Error : isFalse not supported");
 	}
+	
+	
+	// Strings operations
+	
+	public Object makeStringConst(String value) {
+		throw new RuntimeException("## Error : makeStringConst not supported");
+	}
+	
+	public Object makeStringVar(String name) {
+		throw new RuntimeException("## Error : makeStringVar not supported");
+	}
+	
+	public Object makeConcat(Object stringDPExpr1, Object stringDPExpr2) {
+		throw new RuntimeException("## Error : makeConcat not supported");
+	}
+	
+	public Object makeSubstring(Object originalStrDPExpr, Object startIndexDPExpr, Object lengthDPExpr) {
+		throw new RuntimeException("## Error : makeSubstring not supported");
+	}
+	
+	public Object makeAt(Object originalStrDPExpr, Object indexDPExpr) {
+		throw new RuntimeException("## Error : makeAt not supported");
+	}
+	
+	public Object makeCharAt(Object originalStrDPExpr, Object indexDPExpr) {
+		throw new RuntimeException("## Error : makeCharAt not supported");
+	}
+	
+	public Object makeIndexOfStr(Object originalStrDPExpr, Object targetStrDPExpr) {
+		throw new RuntimeException("## Error : makeIndexOfStr not supported");
+	}
+	
+	public Object makeIndexOfStr(Object originalStrDPExpr, Object targetStrDPExpr, Object startIndexDPExpr) {
+		throw new RuntimeException("## Error : makeIndexOfStr not supported");
+	}
+	
+	public Object makeIndexOfChar(Object originalStrDPExpr, Object targetCharDPExpr) {
+		throw new RuntimeException("## Error : makeIndexOfStr not supported");
+	}
+	
+	public Object makeIndexOfChar(Object originalStrDPExpr, Object targetCharDPExpr, Object startIndexDPExpr) {
+		throw new RuntimeException("## Error : makeIndexOfStr not supported");
+	}
+	
+	public Object makeLength(Object stringDPExpr) {
+		throw new RuntimeException("## Error : makeLength not supported");
+	}
+	
+	public Object makeIntToString(Object intDPExpr) {
+		throw new RuntimeException("## Error : makeIntToString not supported");
+	}
+	
+	public Object makeStringToInt(Object strDPExpr) {
+		throw new RuntimeException("## Error : makeStringToInt not supported");
+	}
+	
+	public Object makeStartsWith(Object prefixDPExpr, Object strDPExpr) {
+		throw new RuntimeException("## Error : makeStartsWith not supported");
+	}
+	
+	public Object makeEndsWith(Object suffixDPExpr, Object strDPExpr) {
+		throw new RuntimeException("## Error : makeEndsWith not supported");
+	}
+	
+	public Object makeConstains(Object strDPExpr, Object substrDPExpr) {
+		throw new RuntimeException("## Error : makeConstains not supported");
+	}
+	
+	public Object makeStoreCharAt(Object strDPExpr, Object indexDPExpr, Object valueDPExpr) {
+		throw new RuntimeException("## Error : makeStoreCharAt not supported");
+	}
+	
+	public Object makeIsEmpty(Object strDPExpr) {
+		throw new RuntimeException("## Error : makeIsEmpty not supported");
+	}
 }

@@ -1234,4 +1234,229 @@ public class ProblemZ3 extends ProblemGeneral {
             throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
 		}
 	}
+    
+    // String operations
+    
+    @Override
+    public Object makeStringConst(String value) {
+    	try {
+			return ctx.mkString(value);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    @Override
+    public Object makeStringVar(String name) {
+    	try {
+    		SeqSort stringSort = ctx.getStringSort();
+    		Expr strVar = ctx.mkConst(name, stringSort);
+    		//IntExpr lengthExpr = ctx.mkLength((SeqExpr) strVar);
+    		//BoolExpr constraint = ctx.mkEq(lengthExpr, (Expr) lengthDPExpr);
+    		//solver.add(constraint);
+    		return strVar;
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    @Override
+    public Object makeConcat(Object stringDPExpr1, Object stringDPExpr2) {
+    	try {
+			return ctx.mkConcat((SeqExpr) stringDPExpr1, (SeqExpr) stringDPExpr2);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    @Override
+    public Object makeSubstring(Object originalStrDPExpr, Object startIndexDPExpr, Object lengthDPExpr) {
+    	try {
+			return ctx.mkExtract((SeqExpr) originalStrDPExpr, (IntExpr) startIndexDPExpr, (IntExpr) lengthDPExpr);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    /*
+     * Returns a substring of length 1 at the specified index.
+     */
+    @Override
+    public Object makeAt(Object originalStrDPExpr, Object indexDPExpr) {
+    	try {
+			return ctx.mkAt((SeqExpr) originalStrDPExpr, (IntExpr) indexDPExpr);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    private static int charAtBVCounter = 0;
+    
+    /*
+     * Returns an integer instead of a String.
+     * TODO: might need to add a name to identify the const.
+     */
+    @Override
+    public Object makeCharAt(Object originalStrDPExpr, Object indexDPExpr) {
+    	try {
+			SeqExpr resultStr = ctx.mkAt((SeqExpr) originalStrDPExpr, (IntExpr) indexDPExpr);
+			
+			
+			BitVecExpr resultBV = ctx.mkBVConst("charAt_" + charAtBVCounter, 8);
+			
+			charAtBVCounter++;
+			
+			BoolExpr strBVConstraint = ctx.mkEq(resultStr, ctx.mkUnit(resultBV));
+			solver.add(strBVConstraint);
+			
+			IntExpr resultInt = ctx.mkBV2Int(resultBV, false);
+			return resultInt;
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+	
+    @Override
+	public Object makeIndexOfStr(Object originalStrDPExpr, Object targetStrDPExpr) {
+    	try {
+    		return makeIndexOfStr(originalStrDPExpr, targetStrDPExpr, ctx.mkInt(0));
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+	
+    @Override
+	public Object makeIndexOfStr(Object originalStrDPExpr, Object targetStrDPExpr, Object startIndexDPExpr) {
+    	try {
+			return ctx.mkIndexOf((SeqExpr) originalStrDPExpr, (SeqExpr) targetStrDPExpr, (IntExpr) startIndexDPExpr);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+	
+    @Override
+	public Object makeIndexOfChar(Object originalStrDPExpr, Object targetCharDPExpr) {
+    	try {
+    		return makeIndexOfChar(originalStrDPExpr, targetCharDPExpr, ctx.mkInt(0));
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+	
+    @Override
+	public Object makeIndexOfChar(Object originalStrDPExpr, Object targetCharDPExpr, Object startIndexDPExpr) {
+    	try {
+    		// "Sorts String and (Seq (_ BitVec 16)) are incompatible"
+			 BitVecExpr targetCharBV = ctx.mkInt2BV(8, (IntExpr) targetCharDPExpr);
+			 SeqExpr targetCharStr = ctx.mkUnit(targetCharBV);
+			 return makeIndexOfStr(originalStrDPExpr, targetCharStr, startIndexDPExpr);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    @Override
+    public Object makeLength(Object stringDPExpr) {
+    	try {
+    		return ctx.mkLength((SeqExpr) stringDPExpr);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    @Override
+    public Object makeIntToString(Object intDPExpr) {
+    	try {
+    		return ctx.intToString((IntExpr) intDPExpr);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    @Override
+    public Object makeStringToInt(Object strDPExpr) {
+    	try {
+    		return ctx.stringToInt((SeqExpr) strDPExpr);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    @Override
+    public Object makeStartsWith(Object prefixDPExpr, Object strDPExpr) {
+    	try {
+    		return ctx.mkPrefixOf((SeqExpr) prefixDPExpr, (SeqExpr) strDPExpr);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    @Override
+    public Object makeEndsWith(Object suffixDPExpr, Object strDPExpr) {
+    	try {
+    		return ctx.mkSuffixOf((SeqExpr) suffixDPExpr, (SeqExpr) strDPExpr);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    @Override
+    public Object makeConstains(Object strDPExpr, Object substrDPExpr) {
+    	try {
+    		return ctx.mkContains((SeqExpr) strDPExpr, (SeqExpr) substrDPExpr);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    /*
+     * Store a numerical value in a string at a specified index.
+     */
+    @Override
+    public Object makeStoreCharAt(Object strDPExpr, Object indexDPExpr, Object valueDPExpr) {
+    	try {
+    		IntExpr lengthOfFirstHalf = (IntExpr) indexDPExpr;
+    		SeqExpr firstHalf = ctx.mkExtract((SeqExpr) strDPExpr, ctx.mkInt(0), lengthOfFirstHalf);
+    		
+    		SeqExpr middle = ctx.mkUnit( ctx.mkInt2BV(8, (IntExpr)valueDPExpr));
+    		
+    		IntExpr startOfSecondHalf = (IntExpr) ctx.mkAdd((IntExpr) indexDPExpr, ctx.mkInt(1));
+    		IntExpr totalLength = ctx.mkLength((SeqExpr) strDPExpr);
+    		IntExpr lengthOfSecondHalf = (IntExpr) ctx.mkSub(totalLength, (IntExpr) indexDPExpr);
+    		SeqExpr secondHalf = ctx.mkExtract((SeqExpr) strDPExpr, startOfSecondHalf, lengthOfSecondHalf);
+    		
+    		SeqExpr result = ctx.mkConcat(firstHalf, middle, secondHalf);
+    		
+    		return result;
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    @Override
+    public Object makeIsEmpty(Object strDPExpr) {
+    	try {
+    		return ctx.mkEq(ctx.mkLength((SeqExpr) strDPExpr), ctx.mkInt(0));
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
 }
