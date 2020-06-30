@@ -62,7 +62,7 @@ import gov.nasa.jpf.symbc.string.StringExpression;
 
 public class SpecialIntegerExpression extends IntegerExpression {
 
-	SpecialOperator op;
+	public SpecialOperator op;
 	public StringExpression opr;
 
   public SpecialIntegerExpression(StringExpression opr1){
