@@ -60,7 +60,7 @@ public class StringSymbolic extends StringExpression {
   public String solution = UNDEFINED;
   public static String SYM_STRING_SUFFIX = "_SYMSTRING";
   private String name;
-  private IntegerExpression length;
+  //private IntegerExpression length;
 
   public StringSymbolic() {
 	   super();
@@ -71,7 +71,7 @@ public class StringSymbolic extends StringExpression {
   public StringSymbolic(String n) {
     super();
     name = n;
-    length = new SymbolicInteger(name + ".length");
+    //length = new SymbolicInteger(name + ".length");
 	trackedSymVars.add(fixName(name));
 	StringPathCondition.flagSolved=false;
   }
@@ -111,9 +111,9 @@ public class StringSymbolic extends StringExpression {
 	    	return name;
 	    }
 
-	   public IntegerExpression ___length() {
+	   /*public IntegerExpression ___length() {
 		    return length;
-		  }
+		  }*/
 
 		public String getName() {
 			return (name != null) ? name : "STRING_" + hashCode();
