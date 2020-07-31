@@ -64,6 +64,7 @@ import gov.nasa.jpf.vm.Types;
 import gov.nasa.jpf.vm.VM;
 import gov.nasa.jpf.vm.StackFrame;
 import gov.nasa.jpf.vm.ThreadInfo;
+import gov.nasa.jpf.vm.MJIEnv;
 import gov.nasa.jpf.jvm.bytecode.JVMInvokeInstruction;
 import gov.nasa.jpf.symbc.mixednumstrg.SpecialRealExpression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
@@ -71,6 +72,7 @@ import gov.nasa.jpf.symbc.numeric.PCChoiceGenerator;
 import gov.nasa.jpf.symbc.numeric.Comparator;
 import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerExpression;
+import gov.nasa.jpf.symbc.numeric.NullIndicator;
 import gov.nasa.jpf.symbc.numeric.RealExpression;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
 import gov.nasa.jpf.symbc.string.*;
@@ -136,7 +138,7 @@ public class SymbolicStringHandler {
 	public Instruction handleSymbolicStrings(JVMInvokeInstruction invInst, ThreadInfo th) {
 
 		boolean needToHandle = isMethodStringSymbolic(invInst, th);
-
+		
 		if (needToHandle) {
 			// do the string manipulations
 			String mname = invInst.getInvokedMethodName();
@@ -148,10 +150,25 @@ public class SymbolicStringHandler {
 				}
 			} else if (shortName.equals("equals")) {
 				ChoiceGenerator<?> cg;
+				
 				if (!th.isFirstStepInsn()) { // first time around
-					cg = new PCChoiceGenerator(2);
-					th.getVM().setNextChoiceGenerator(cg);
-					return invInst;
+					StackFrame sf = th.getModifiableTopFrame();
+					
+					StringExpression sym_v1 = (StringExpression) sf.getOperandAttr(0);
+					int s1 = sf.peek();
+					
+					if(sym_v1 == null && s1 == MJIEnv.NULL) { // s2.equals(null);
+						sf.pop();
+						sf.pop();
+						
+						sf.push(0); // result is false
+						
+						return invInst.getNext(th);
+					} else {
+						cg = new PCChoiceGenerator(2);
+						th.getVM().setNextChoiceGenerator(cg);
+						return invInst;
+					}
 				} else {
 					handleObjectEquals(invInst, th);
 					return invInst.getNext(th);
@@ -320,6 +337,8 @@ public class SymbolicStringHandler {
 					handleIsEmpty(invInst, th);
 					return invInst.getNext(th);
 				}
+			} else if(shortName.equals("hashCode")) {
+				handleHashCode(invInst, th);
 			} else {
 				throw new RuntimeException("ERROR: symbolic method not handled: " + shortName);
 				//return null;
@@ -329,6 +348,23 @@ public class SymbolicStringHandler {
 			return null;
 		}
 
+	}
+	
+	private void handleHashCode(JVMInvokeInstruction invInst, ThreadInfo th) {
+		StackFrame sf = th.getModifiableTopFrame();
+		
+		StringExpression sym_v1 = (StringExpression) sf.getOperandAttr(0);
+		
+		if(sym_v1 == null) {
+			throw new RuntimeException("ERROR: symbolic string method must have one symbolic operand: handleHashCode");
+		} else {
+			sf.pop();
+			
+			SymbolicHashCode symHashCode = sym_v1._hashCode();
+			
+			sf.push(0);
+			sf.setOperandAttr(symHashCode);
+		}
 	}
 	
 	private void handleIsEmpty(JVMInvokeInstruction invInst, ThreadInfo th) {
@@ -1012,6 +1048,7 @@ public class SymbolicStringHandler {
 					ElementInfo e1 = th.getElementInfo(s1);
 					String val = e1.asString();
 					pc.spc._addDet(comp.not(), val, sym_v2);
+
 				}
 				if (!pc.simplify()) {// not satisfiable
 					th.getVM().getSystemState().setIgnored(true);
@@ -2308,10 +2345,11 @@ public class SymbolicStringHandler {
 		} else {
 			int s1 = sf.pop();
 			int s2 = sf.pop();
-
+			
+			sym_v2 = sym_v2.clone();
 			if (sym_v1 == null) { // operand 0 is concrete
 				ElementInfo e1 = th.getElementInfo(s1);
-				String val = e1.asString();
+				String val = e1 == null? "null" : e1.asString();
 				sym_v2._append(val);
 				sf.push(s2, true); /* symbolic string Builder element */
 			} else if (sym_v2.getstr() == null) { // operand 1 is concrete; get string

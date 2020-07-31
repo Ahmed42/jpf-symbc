@@ -68,7 +68,6 @@ import gov.nasa.jpf.symbc.string.graph.PreProcessGraph;
 
 //TODO: Repeat the fix found in _charAt in other constraints
 public abstract class StringExpression extends Expression {
-
   SymbolicInteger length = null;
   Map<String, SymbolicCharAtInteger> charAt = null;
   Map<StringExpression, SymbolicIndexOfInteger> indexOf = null;
@@ -79,6 +78,7 @@ public abstract class StringExpression extends Expression {
   Map<IntegerExpression, SymbolicLastIndexOfCharInteger> lastIndexOfChar = null;
   Map<IntegerExpression, SymbolicLastIndexOfChar2Integer> lastIndexOfChar2 = null;
   Map<IntegerExpression,Set<SymbolicIndexOfChar2Integer>> indexOfChar2 = null;
+  SymbolicHashCode expressionHashCode = null;
 
 //   protected StringDependentNode dependentsHead = null;
 //   protected StringRelationshipNode relationshipsHead = null;
@@ -240,6 +240,15 @@ public abstract class StringExpression extends Expression {
 	    }
 	    return sioi;
 	  }
+  
+  /* hashCode() */
+  public SymbolicHashCode _hashCode() {
+	  if(expressionHashCode == null) {
+		  expressionHashCode = new SymbolicHashCode("hashCode(" + this.getName() + ")", this);
+	  }
+	  
+	  return expressionHashCode;
+  }
 
   /* trim */
   public StringExpression _trim() {
