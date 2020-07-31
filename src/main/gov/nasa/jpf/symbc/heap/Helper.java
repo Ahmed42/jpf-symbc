@@ -27,10 +27,13 @@ import gov.nasa.jpf.symbc.numeric.Comparator;
 import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
 import gov.nasa.jpf.symbc.numeric.IntegerExpression;
+import gov.nasa.jpf.symbc.numeric.NullIndicator;
 import gov.nasa.jpf.symbc.numeric.PCChoiceGenerator;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
 import gov.nasa.jpf.symbc.numeric.SymbolicReal;
+import gov.nasa.jpf.symbc.string.StringComparator;
+import gov.nasa.jpf.symbc.string.StringHeapNode;
 import gov.nasa.jpf.symbc.string.StringSymbolic;
 import gov.nasa.jpf.vm.BooleanFieldInfo;
 import gov.nasa.jpf.vm.ClassInfo;
@@ -44,6 +47,7 @@ import gov.nasa.jpf.vm.LongFieldInfo;
 import gov.nasa.jpf.vm.ReferenceFieldInfo;
 import gov.nasa.jpf.vm.StaticElementInfo;
 import gov.nasa.jpf.vm.ThreadInfo;
+import gov.nasa.jpf.vm.ClassLoaderInfo;
 
 public class Helper {
 
@@ -61,6 +65,7 @@ public class Helper {
 		} else if (field instanceof FloatFieldInfo || field instanceof DoubleFieldInfo) {
 			sym_v = new SymbolicReal(fullName);
 		} else if (field instanceof ReferenceFieldInfo){
+			System.out.println("Initializing field of type: " + field.getType());
 			if (field.getType().equals("java.lang.String"))
 				sym_v = new StringSymbolic(fullName);
 			else
@@ -125,6 +130,16 @@ public class Helper {
 	  public static int addNewHeapNode(ClassInfo typeClassInfo, ThreadInfo ti, Object attr,
 			  PathCondition pcHeap, SymbolicInputHeap symInputHeap,
 			  int numSymRefs, HeapNode[] prevSymRefs, boolean setShared) {
+		  if(typeClassInfo.isAbstract()) {
+			  System.out.println("Creating heap node for abstract field!");
+			  
+			  if(typeClassInfo.getName().contains("java.util.Map")) {
+				  System.out.println("Creating heap node for Map field!");
+				  ClassLoaderInfo classLoaderInfo = ti.getSystemClassLoaderInfo();
+				  ClassInfo concreteClassInfo = classLoaderInfo.getResolvedClassInfo("java.util.HashMap");
+				  typeClassInfo = concreteClassInfo;
+			  }
+		  }
 		  int daIndex = ti.getHeap().newObject(typeClassInfo, ti).getObjectRef();
 		  ti.getHeap().registerPinDown(daIndex);
 		  String refChain = ((SymbolicInteger) attr).getName(); // + "[" + daIndex + "]"; // do we really need to add daIndex here?
@@ -158,21 +173,26 @@ public class Helper {
 
           // Put symbolic array in PC if we create a new array.
           if (typeClassInfo.isArray()) {
+        	  System.out.println("In Helper: " + refChain);
               String typeClass = typeClassInfo.getType();
               ArrayExpression arrayAttr = null;
               if (typeClass.charAt(1) != 'L') {
-                  arrayAttr = new ArrayExpression(eiRef.toString());
+                  //arrayAttr = new ArrayExpression(eiRef.toString());
+            	  arrayAttr = new ArrayExpression(refChain);
               } else {
-                  arrayAttr = new ArrayExpression(eiRef.toString(), typeClass.substring(2, typeClass.length() -1));
+                  //arrayAttr = new ArrayExpression(eiRef.toString(), typeClass.substring(2, typeClass.length() -1));
+            	  arrayAttr = new ArrayExpression(refChain, typeClass.substring(2, typeClass.length() -1));
               }
-              ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class).getCurrentPC().arrayExpressions.put(eiRef.toString(), arrayAttr);
+              //ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class).getCurrentPC().arrayExpressions.put(eiRef.toString(), arrayAttr);
+              ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class).getCurrentPC().arrayExpressions.put(refChain, arrayAttr);
           }
 
 		  // create new HeapNode based on above info
 		  // update associated symbolic input heap
 		  HeapNode n= new HeapNode(daIndex,typeClassInfo,newSymRef);
 		  symInputHeap._add(n);
-		  pcHeap._addDet(Comparator.NE, newSymRef, new IntegerConstant(-1));
+		  //pcHeap._addDet(Comparator.NE, newSymRef, new IntegerConstant(-1));
+		  pcHeap._addDet(newSymRef, NullIndicator.NOTNULL);
 		  //pcHeap._addDet(Comparator.EQ, newSymRef, new IntegerConstant(numSymRefs));
 		  for (int i=0; i< numSymRefs; i++)
 			  pcHeap._addDet(Comparator.NE, n.getSymbolic(), prevSymRefs[i].getSymbolic());
@@ -235,5 +255,32 @@ public class Helper {
 			  pcHeap._addDet(Comparator.NE, n.getSymbolic(), prevSymRefs[i].getSymbolic());
 		  HelperResult result = new HelperResult(n, daIndex);
           return result;
+	  }
+
+	  public static StringHeapNode addNewStringHeapNode(ClassInfo typeClassInfo, ThreadInfo ti, Object attr,
+			  PathCondition pcHeap, SymbolicInputHeap symInputHeap,
+			  int numSymRefs, HeapNode[] prevSymRefs, boolean setShared) {
+		  
+		  int daIndex = ti.getHeap().newString("", ti).getObjectRef(); 
+		  ti.getHeap().registerPinDown(daIndex);
+		  ElementInfo eiRef =  ti.getModifiableElementInfo(daIndex);
+		  if(setShared) {
+			  eiRef.setShared(ti,true);//??
+		  }
+		  
+		  StringSymbolic symVar = (StringSymbolic) attr;
+		  String symStringName = ((StringSymbolic) attr).getName();
+		  StringSymbolic newSymVar = new StringSymbolic(symStringName);
+		  newSymVar.isLazyInitialized = true;
+		  
+		  StringHeapNode node = new StringHeapNode(daIndex, typeClassInfo, newSymVar);
+		  symInputHeap._add(node); 
+		  pcHeap._addDet(newSymVar, NullIndicator.NOTNULL);
+		  
+		  for(int i = 0; i < numSymRefs; i++) {
+			  pcHeap.spc._addDet(StringComparator.NE, node.getStringSymbolic(), ((StringHeapNode)prevSymRefs[i]).getStringSymbolic());
+		  }
+		  
+		  return node;
 	  }
 }
