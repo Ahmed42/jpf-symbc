@@ -73,7 +73,7 @@ public class SymbolicStringBuilder extends Expression {
   }
 
   public SymbolicStringBuilder clone() {
-		return new SymbolicStringBuilder((StringExpression) this.str.clone());
+		return new SymbolicStringBuilder((StringExpression) this.str);
 	}
 
   public SymbolicStringBuilder(String s) {
