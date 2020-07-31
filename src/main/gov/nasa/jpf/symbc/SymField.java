@@ -13,9 +13,9 @@ import gov.nasa.jpf.symbc.numeric.Expression;
 public class SymField {
 	private Expression symVar; // No other common ancestor to terminal symbolic values (consts and vars) exists
 	private ElementInfo fieldOwner;
-	//private int objectRef;
 	protected FieldInfo fieldInfo;
 	private ThreadInfo currentThread;
+	private int owningObjRef;
 	
 	/*private PCChoiceGenerator pcChoiceGen;
 	private int pcChoiceNo;
@@ -28,11 +28,12 @@ public class SymField {
 	
 	private PathCondition heapPC;
 	
-	public SymField(Expression sVar, ElementInfo owningObj, FieldInfo fInfo, 
+	public SymField(Expression sVar, int objRef, ElementInfo owningObj, FieldInfo fInfo, 
 			int offset, int choiceNo, PathCondition hPC,
 			ThreadInfo curThread) {
 		symVar = sVar;
 		//objectRef = objRef;
+		owningObjRef = objRef;
 		fieldOwner = owningObj;
 		fieldInfo = fInfo;
 		currentThread = curThread;
@@ -68,12 +69,16 @@ public class SymField {
 		
 		//System.out.println(fieldOwner.getFieldAttr(fieldInfo));
 		
-		int objRef = fieldOwner.getObjectRef();
-		ElementInfo actualOwner = currentThread.getElementInfo(objRef);
+		// TODO check for static 
+		// TODO Test objRef for MJIEnv.NULL (I don't think we need to do this one)
 		
-		fieldOwner = actualOwner;
+		//int objRef = fieldOwner.getObjectRef();
+		ElementInfo owner = currentThread.getElementInfo(owningObjRef);
 		
-		Object value = fieldOwner.getFieldAttr(fieldInfo);
+		
+		Object value = owner.getFieldAttr(fieldInfo);
+		
+		// TODO deal with null values by adding the appropriate constraint
 		
 		/*if(value == null && fieldInfo.isIntField()) {
 			value = actualOwner.getIntField(fieldInfo);
@@ -90,29 +95,29 @@ public class SymField {
 		// Value might not be symbolic
 		if(value == null) {
 			if(fieldInfo.isBooleanField()) {
-				value = fieldOwner.getBooleanField(fieldInfo);
+				value = owner.getBooleanField(fieldInfo);
 			} else if(fieldInfo.isByteField()) {
-				value = fieldOwner.getByteField(fieldInfo);
+				value = owner.getByteField(fieldInfo);
 			} else if(fieldInfo.isCharField()) {
-				value = fieldOwner.getCharField(fieldInfo);
+				value = owner.getCharField(fieldInfo);
 			} else if(fieldInfo.isShortField()) {
-				value = fieldOwner.getShortField(fieldInfo);
+				value = owner.getShortField(fieldInfo);
 			} else if(fieldInfo.isIntField()) {
-				value = fieldOwner.getIntField(fieldInfo);
+				value = owner.getIntField(fieldInfo);
 			} else if(fieldInfo.isLongField()) {
-				value = fieldOwner.getLongField(fieldInfo);
-			} else if(fieldInfo.isFloatingPointField()) {
-				value = fieldOwner.getFloatField(fieldInfo);
+				value = owner.getLongField(fieldInfo);
+			} else if(fieldInfo.isFloatField()) {
+				value = owner.getFloatField(fieldInfo);
 			} else if(fieldInfo.isDoubleField()) {
-				value = fieldOwner.getDoubleField(fieldInfo);
+				value = owner.getDoubleField(fieldInfo);
 			} else if(fieldInfo.isReference()) {
 				// TODO handle reference non-string data 
 				if(fieldInfo.getType().contains("String")) {
-					int ref = fieldOwner.getReferenceField(fieldInfo);
+					int ref = owner.getReferenceField(fieldInfo);
 					//value = fieldOwner.getStringField(fieldInfo.getName());
 					ElementInfo stringFieldElement = currentThread.getVM().getHeap().get(ref);
 					
-					System.out.println("Ref#" + ref + ", value: " + value);
+					//System.out.println("Ref#" + ref + ", value: " + value);
 					
 					if(stringFieldElement != null) {
 						value = stringFieldElement.asString();

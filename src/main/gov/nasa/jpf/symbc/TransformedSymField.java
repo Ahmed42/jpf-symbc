@@ -30,10 +30,10 @@ public class TransformedSymField extends SymField {
 	private Expression symVarOutput; // Output variable name for a transformed field
 	private Constraint identityConstraint;
 	
-	public TransformedSymField(Expression sVar, ElementInfo owningObj, FieldInfo fInfo, 
+	public TransformedSymField(Expression sVar, int objRef, ElementInfo owningObj, FieldInfo fInfo, 
 			int offset, int choiceNo, PathCondition heapPC,
 			ThreadInfo curThread) {
-		super(sVar, owningObj, fInfo, offset, choiceNo, heapPC, curThread);
+		super(sVar, objRef, owningObj, fInfo, offset, choiceNo, heapPC, curThread);
 
 		createOutputSymVar(sVar, fInfo);
 	}
@@ -97,6 +97,8 @@ public class TransformedSymField extends SymField {
 		Object transformation = null;
 		Object rightSide = getFieldVal();
 		
+		
+		// TODO deal with null values by adding the appropriate constraint
 		if(fieldInfo.isFloatingPointField() || fieldInfo.isDoubleField()) {
 			RealExpression rightSideExpr;
 			
