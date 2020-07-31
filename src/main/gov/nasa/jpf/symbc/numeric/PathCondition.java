@@ -262,6 +262,15 @@ public class PathCondition implements Comparable<PathCondition> {
 		      count++;
 		}
     }
+    
+    
+    public void _addDet(Expression refExpression, NullIndicator isNull) {
+    	flagSolved = false;
+    	
+    	NullConstraint t = new NullConstraint(refExpression, isNull);
+    	
+    	prependUnlessRepeated(t);
+    }
 
     /**
      * Prepends the given constraint to this path condition, unless the constraint
