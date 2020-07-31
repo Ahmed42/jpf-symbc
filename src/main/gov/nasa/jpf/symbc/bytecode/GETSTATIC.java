@@ -26,10 +26,15 @@ import gov.nasa.jpf.symbc.heap.HeapNode;
 import gov.nasa.jpf.symbc.heap.Helper;
 import gov.nasa.jpf.symbc.heap.SymbolicInputHeap;
 import gov.nasa.jpf.symbc.numeric.Comparator;
+import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
+import gov.nasa.jpf.symbc.numeric.NullIndicator;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
+import gov.nasa.jpf.symbc.string.StringComparator;
 import gov.nasa.jpf.symbc.string.StringExpression;
+import gov.nasa.jpf.symbc.string.StringHeapNode;
+import gov.nasa.jpf.symbc.string.StringSymbolic;
 import gov.nasa.jpf.symbc.string.SymbolicStringBuilder;
 import gov.nasa.jpf.vm.ChoiceGenerator;
 import gov.nasa.jpf.vm.ClassInfo;
@@ -97,8 +102,9 @@ public class GETSTATIC extends gov.nasa.jpf.jvm.bytecode.GETSTATIC {
 		if (!(fi.isReference() && attr != null))
 			return super.execute(ti);
 
-		if(attr instanceof StringExpression || attr instanceof SymbolicStringBuilder)
-				return super.execute(ti); // Strings are handled specially
+		// attr instanceof StringExpression || 
+		if(attr instanceof SymbolicStringBuilder)
+			return super.execute(ti); // Strings are handled specially
 
 		
 		// else: lazy initialization
@@ -171,32 +177,65 @@ public class GETSTATIC extends gov.nasa.jpf.jvm.bytecode.GETSTATIC {
 
 		 prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo);
          numSymRefs = prevSymRefs.length;
-		
 
-		int daIndex = 0; //index into JPF's dynamic area
+
+		int daIndex = 0; // index into JPF's dynamic area
+		
+		StringSymbolic result = null;
+		
 		if (currentChoice < numSymRefs) { // lazy initialization
-			  HeapNode candidateNode = prevSymRefs[currentChoice];
-			  // here we should update pcHeap with the constraint attr == candidateNode.sym_v
-			  pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, candidateNode.getSymbolic());
-	          daIndex = candidateNode.getIndex();
+			HeapNode candidateNode = prevSymRefs[currentChoice];
+			// here we should update pcHeap with the constraint attr == candidateNode.sym_v
+			if (attr instanceof StringSymbolic) {
+				StringSymbolic symVar = ((StringHeapNode) candidateNode).getStringSymbolic();
+				pcHeap.spc._addDet(StringComparator.EQ, (StringSymbolic) attr, symVar);
+				result = symVar;
+			} else {
+				pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, candidateNode.getSymbolic());
+				daIndex = candidateNode.getIndex();
+			}
 		}
 		else if (currentChoice == numSymRefs) { //existing (null)
-			pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, new IntegerConstant(-1));
+			//pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, new IntegerConstant(-1));
+			pcHeap._addDet((Expression) attr, NullIndicator.NULL);
 			daIndex = MJIEnv.NULL;
+			result = null;
 		} else if (currentChoice == (numSymRefs + 1) && !abstractClass) {
 			  // creates a new object with all fields symbolic and adds the object to SymbolicHeap
-			  daIndex = Helper.addNewHeapNode(typeClassInfo, ti, attr, pcHeap,
+			if(attr instanceof StringSymbolic) {
+				StringHeapNode node = Helper.addNewStringHeapNode(typeClassInfo, ti, attr, pcHeap,
 					  		symInputHeap, numSymRefs, prevSymRefs, ei.isShared());
+				daIndex = node.getIndex();
+				
+				result = node.getStringSymbolic();
+			} else {
+				daIndex = Helper.addNewHeapNode(typeClassInfo, ti, attr, pcHeap,
+					  		symInputHeap, numSymRefs, prevSymRefs, ei.isShared());
+			}
 		  } else {
 			  //TODO: fix
 			  System.err.println("subtyping not handled");
 		  }
 
-
-		ei.setReferenceField(fi,daIndex );
-		ei.setFieldAttr(fi, null);//Helper.SymbolicNull); // was null
 		StackFrame frame = ti.getModifiableTopFrame();
+		
+		ei.setReferenceField(fi,daIndex );
+		if(attr instanceof StringSymbolic) {
+			StringSymbolic oldAttr = (StringSymbolic) attr;
+			//((StringSymbolic) attr).isLazyInitialized = true;
+			StringSymbolic newAttr = new StringSymbolic(oldAttr.getName());
+			newAttr.isLazyInitialized = true;
+			ei.setFieldAttr(fi, newAttr);
+			frame.setOperandAttr(result);
+		} else {
+			ei.setFieldAttr(fi, null);//Helper.SymbolicNull); // was null
+		}
+		
+		
 		frame.pushRef(daIndex);
+		frame.setOperandAttr(result);
+		  
+		
 		((HeapChoiceGenerator)heapCG).setCurrentPCheap(pcHeap);
 		((HeapChoiceGenerator)heapCG).setCurrentSymInputHeap(symInputHeap);
 		if (SymbolicInstructionFactory.debugMode)

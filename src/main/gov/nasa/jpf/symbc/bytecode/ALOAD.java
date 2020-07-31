@@ -26,11 +26,16 @@ import gov.nasa.jpf.symbc.heap.HeapNode;
 import gov.nasa.jpf.symbc.heap.Helper;
 import gov.nasa.jpf.symbc.heap.SymbolicInputHeap;
 import gov.nasa.jpf.symbc.numeric.Comparator;
+import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
 import gov.nasa.jpf.symbc.numeric.IntegerExpression;
+import gov.nasa.jpf.symbc.numeric.NullIndicator;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
+import gov.nasa.jpf.symbc.string.StringComparator;
 import gov.nasa.jpf.symbc.string.StringExpression;
+import gov.nasa.jpf.symbc.string.StringHeapNode;
+import gov.nasa.jpf.symbc.string.StringSymbolic;
 import gov.nasa.jpf.symbc.string.SymbolicStringBuilder;
 import gov.nasa.jpf.vm.ChoiceGenerator;
 import gov.nasa.jpf.vm.ClassInfo;
@@ -77,7 +82,16 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 		String typeOfLocalVar = super.getLocalVariableType();
 
 
-		if(attr == null || typeOfLocalVar.equals("?") || attr instanceof SymbolicStringBuilder || attr instanceof StringExpression || attr instanceof ArrayExpression) {
+		// || attr instanceof StringExpression 
+		if(attr == null || typeOfLocalVar.equals("?") || attr instanceof SymbolicStringBuilder  || attr instanceof ArrayExpression) {
+			return super.execute(th);
+		}
+		
+		if(attr instanceof StringSymbolic || attr instanceof SymbolicInteger) {
+			if(((Expression) attr).isLazyInitialized) {
+				return super.execute(th);
+			}
+		} else if(attr instanceof StringExpression) {
 			return super.execute(th);
 		}
 		
@@ -105,7 +119,8 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 
 			}
 			int increment = 2;
-			if(typeClassInfo.isAbstract() || (((IntegerExpression)attr).toString()).contains("this")) {
+			// typeClassInfo.isAbstract() ||
+			if( (((Expression)attr).toString()).contains("this")) {
 				 abstractClass = true;
 				 increment = 1; // only null for abstract, non null for this
 			}
@@ -145,22 +160,54 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
         numSymRefs = prevSymRefs.length;
 
 		int daIndex = 0; //index into JPF's dynamic area
-
+		
+		StringSymbolic strResult = null;
+		SymbolicInteger refResult = null;
+		
 		if (currentChoice < numSymRefs) { // lazy initialization using a previously lazily initialized object
 			HeapNode candidateNode = prevSymRefs[currentChoice];
 			// here we should update pcHeap with the constraint attr == candidateNode.sym_v
-			pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, candidateNode.getSymbolic());
+			
+			if(attr instanceof StringSymbolic) {
+				  StringSymbolic symVar = ((StringHeapNode) candidateNode).getStringSymbolic();
+				  pcHeap.spc._addDet(StringComparator.EQ, (StringSymbolic) attr, symVar);
+				  strResult = symVar;
+				  strResult.isLazyInitialized = true;
+			} else {
+				  pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, candidateNode.getSymbolic());
+				  
+				  if(typeClassInfo.isArray()) {
+					  refResult = candidateNode.getSymbolic();
+					  refResult.isLazyInitialized = true;
+				  }
+			}
 			daIndex = candidateNode.getIndex();
 		}
-		else if (currentChoice == numSymRefs && !(((IntegerExpression)attr).toString()).contains("this")){ //null object
-			pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, new IntegerConstant(-1));
+		else if (currentChoice == numSymRefs && !(((Expression)attr).toString()).contains("this")){ //null object
+			//pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, new IntegerConstant(-1));
+			pcHeap._addDet((Expression) attr, NullIndicator.NULL);
 			daIndex = MJIEnv.NULL;
+			strResult = null;
 		}
-		else if ((currentChoice == (numSymRefs + 1) && !abstractClass) | (currentChoice == numSymRefs && (((IntegerExpression)attr).toString()).contains("this"))) {
+		else if ((currentChoice == (numSymRefs + 1) && !abstractClass) | (currentChoice == numSymRefs && (((Expression)attr).toString()).contains("this"))) {
 			//creates a new object with all fields symbolic
 			boolean shared = (ei == null? false: ei.isShared());
-			daIndex = Helper.addNewHeapNode(typeClassInfo, th, attr, pcHeap,
+			if(attr instanceof StringSymbolic) {
+				  StringHeapNode node  = Helper.addNewStringHeapNode(typeClassInfo, th, attr, pcHeap,
+					  		symInputHeap, numSymRefs, prevSymRefs, shared);
+				  daIndex = node.getIndex();
+				  strResult = node.getStringSymbolic();
+				  strResult.isLazyInitialized = true;
+			} else {
+				  daIndex = Helper.addNewHeapNode(typeClassInfo, th, attr, pcHeap,
 							symInputHeap, numSymRefs, prevSymRefs, shared);
+				  
+				  if(typeClassInfo.isArray()) {
+					  // We might need to get the symbol created in the Helper method
+					  refResult = (SymbolicInteger) attr;
+					  refResult.isLazyInitialized = true;
+				  }
+			}
 		} else {
 			//TODO: fix subtypes
 			System.err.println("subtypes not handled");
@@ -168,8 +215,29 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 
 
 		sf.setLocalVariable(index, daIndex, true);
-		sf.setLocalAttr(index, null);
 		sf.push(daIndex, true);
+		
+		if(attr instanceof StringSymbolic) {
+			StringSymbolic oldAttr = (StringSymbolic) attr;
+			//((StringSymbolic) attr).isLazyInitialized = true;
+			//StringSymbolic newAttr = new StringSymbolic(oldAttr.getName());
+			//newAttr.isLazyInitialized = true;
+			//oldAttr.isLazyInitialized = true;
+			//sf.setLocalAttr(index, oldAttr);
+			//sf.setLocalAttr(index, null);
+			sf.setLocalAttr(index, strResult);
+			//sf.setLocalAttr(index, newAttr);
+			sf.setOperandAttr(strResult);
+		} else if(typeClassInfo.isArray()) {
+			sf.setLocalAttr(index, refResult);
+			sf.setOperandAttr(refResult);
+		 } else {
+			sf.setLocalAttr(index, null);
+		}
+		
+		
+		//sf.setOperandAttr(result);
+		  
 
 		((HeapChoiceGenerator)thisHeapCG).setCurrentPCheap(pcHeap);
 		((HeapChoiceGenerator)thisHeapCG).setCurrentSymInputHeap(symInputHeap);

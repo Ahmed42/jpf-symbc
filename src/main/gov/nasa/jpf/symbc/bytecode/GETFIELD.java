@@ -25,10 +25,15 @@ import gov.nasa.jpf.symbc.heap.HeapNode;
 import gov.nasa.jpf.symbc.heap.Helper;
 import gov.nasa.jpf.symbc.heap.SymbolicInputHeap;
 import gov.nasa.jpf.symbc.numeric.Comparator;
+import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
+import gov.nasa.jpf.symbc.numeric.NullIndicator;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
+import gov.nasa.jpf.symbc.string.StringComparator;
 import gov.nasa.jpf.symbc.string.StringExpression;
+import gov.nasa.jpf.symbc.string.StringHeapNode;
+import gov.nasa.jpf.symbc.string.StringSymbolic;
 import gov.nasa.jpf.symbc.string.SymbolicStringBuilder;
 import gov.nasa.jpf.vm.ChoiceGenerator;
 import gov.nasa.jpf.vm.ClassInfo;
@@ -82,6 +87,10 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 	                                        "referencing field '" + fname + "' in " + ei);
 	    }
 	    
+	    /*System.out.println("Field: " + fi);
+	    System.out.println("Field: " + fi);
+	    System.out.println("Generic sig: " + fi.getGenericSignature());*/
+	    
 	 Object attr = ei.getFieldAttr(fi);
 	  // check if the field is of ref type & it is symbolic (i.e. it has an attribute)
 	  // if it is we need to do lazy initialization
@@ -89,10 +98,20 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 	  if (!(fi.isReference() && attr != null)) {
 		  return super.execute(ti);
 	  }
-
-	  if(attr instanceof StringExpression || attr instanceof SymbolicStringBuilder)
+	  
+	  if(attr instanceof StringSymbolic || attr instanceof SymbolicInteger) {
+		  if(((Expression) attr).isLazyInitialized) {
+			  return super.execute(ti);
+		  }
+	  } else if(attr instanceof StringExpression) {
+		  return super.execute(ti);
+	  }
+	  
+	  //  attr instanceof StringExpression || 
+	  if(attr instanceof SymbolicStringBuilder) {
 			return super.execute(ti); // Strings are handled specially
-
+	  }
+			
 	  if (SymbolicInstructionFactory.debugMode)
 		  System.out.println("lazy initialization");
 	  // else: lazy initialization
@@ -127,10 +146,10 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 			  numSymRefs = prevSymRefs.length;
 		  }
 		  int increment = 2;
-		  if(typeClassInfo.isAbstract()) {
+		  /*if(typeClassInfo.isAbstract()) {
 			  abstractClass = true;
 			  increment = 1; // only null
-		  }
+		  }*/
 
 		  thisHeapCG = new HeapChoiceGenerator(numSymRefs+increment);  //+null,new
 		  ti.getVM().getSystemState().setNextChoiceGenerator(thisHeapCG);
@@ -177,30 +196,87 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 	  numSymRefs = prevSymRefs.length;
 	  
 	  int daIndex = 0; //index into JPF's dynamic area
+	  
+	  StringSymbolic strResult = null;
+	  SymbolicInteger refResult = null;
+	  
 	  if (currentChoice < numSymRefs) { // lazy initialization using a previously lazily initialized object
 		  HeapNode candidateNode = prevSymRefs[currentChoice];
 		  // here we should update pcHeap with the constraint attr == candidateNode.sym_v
-		  pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, candidateNode.getSymbolic());
+		  if(attr instanceof StringSymbolic) {
+			  StringSymbolic symVar = ((StringHeapNode) candidateNode).getStringSymbolic();
+			  pcHeap.spc._addDet(StringComparator.EQ, (StringSymbolic) attr, symVar);
+			  strResult = symVar;
+			  strResult.isLazyInitialized = true;
+		  } else {
+			  pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, candidateNode.getSymbolic());
+			  
+			  if(typeClassInfo.isArray()) {
+				  refResult = candidateNode.getSymbolic();
+				  refResult.isLazyInitialized = true;
+			  }
+		  }
+		  
           daIndex = candidateNode.getIndex();
 	  }
 	  else if (currentChoice == numSymRefs){ //null object
-		  pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, new IntegerConstant(-1));
+		  //pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, new IntegerConstant(-1));
+		  pcHeap._addDet((Expression) attr, NullIndicator.NULL);
 		  daIndex = MJIEnv.NULL;//-1;
+		  //result = null;
 	  }
 	  else if (currentChoice == (numSymRefs + 1) && !abstractClass) {
 		  // creates a new object with all fields symbolic and adds the object to SymbolicHeap
-		  
-		  daIndex = Helper.addNewHeapNode(typeClassInfo, ti, attr, pcHeap,
+		  if(attr instanceof StringSymbolic) {
+			  StringHeapNode node = Helper.addNewStringHeapNode(typeClassInfo, ti, attr, pcHeap,
 				  		symInputHeap, numSymRefs, prevSymRefs, ei.isShared());
+			  daIndex = node.getIndex();
+			  strResult = node.getStringSymbolic();
+			  strResult.isLazyInitialized = true;
+		  }  else {
+			  daIndex = Helper.addNewHeapNode(typeClassInfo, ti, attr, pcHeap,
+				  		symInputHeap, numSymRefs, prevSymRefs, ei.isShared());
+			  
+			  if(typeClassInfo.isArray()) {
+				  // We might need to get the symbol created in the Helper method
+				  refResult = (SymbolicInteger) attr;
+				  refResult.isLazyInitialized = true;
+			  }
+		  }
+		  
 	  } else {
 		  System.err.println("subtyping not handled");
 	  }
 
 	  
 	 ei.setReferenceField(fi,daIndex );
-	 ei.setFieldAttr(fi, null);
+	 
+	 frame.pushRef(daIndex);
+	 
+	 if(attr instanceof StringSymbolic) {
+		 StringSymbolic oldAttr = (StringSymbolic) attr;
+			//((StringSymbolic) attr).isLazyInitialized = true;
+			//StringSymbolic newAttr = new StringSymbolic(oldAttr.getName());
+			//newAttr.isLazyInitialized = true;
+			//oldAttr.isLazyInitialized = true;
+			//ei.setFieldAttr(fi, oldAttr);
+			//ei.setFieldAttr(fi, null);
+			ei.setFieldAttr(fi, strResult);
+			frame.setOperandAttr(strResult);
+			//ei.setFieldAttr(fi, newAttr);
+	 } else if(typeClassInfo.isArray()) {
+		 ei.setFieldAttr(fi, refResult);
+		 frame.setOperandAttr(refResult);
+		 
+	 } else {
+		 ei.setFieldAttr(fi, null);
+	 }
+	 
 
-	  frame.pushRef(daIndex);
+	 
+	 
+	  
+	  
       
 	  ((HeapChoiceGenerator)thisHeapCG).setCurrentPCheap(pcHeap);
 	  ((HeapChoiceGenerator)thisHeapCG).setCurrentSymInputHeap(symInputHeap);
