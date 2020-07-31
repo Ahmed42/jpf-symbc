@@ -49,5 +49,13 @@ public class SymbolicCharAtInteger extends SymbolicInteger{
 		return this.index;
 	}
 
+	@Override
+	public String toString() {
+		return se + ".CharAt(" + index + ")";
+	}
 	
+	
+	public String stringPC() {
+		return toString();
+	}
 }
