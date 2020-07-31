@@ -33,14 +33,17 @@ public class INVOKEINTERFACE extends gov.nasa.jpf.jvm.bytecode.INVOKEINTERFACE{
 	public Instruction execute(ThreadInfo th) {
 		 int objRef = th.getCalleeThis(getArgSize());
 
-		    if (objRef == -1) {
-		      lastObj = -1;
+		    if (objRef == -1 || objRef == 0) {
+		      lastObj = objRef;
 		      return th.createAndThrowException("java.lang.NullPointerException", "Calling '" + mname + "' on null object");
 		    }
 
 		    MethodInfo mi = getInvokedMethod(th, objRef);
 
 		    if (mi == null) {
+		      if(th.getClassInfo(objRef) == null) {
+		    	  System.out.println("hi something is null");
+		      }
 		      String clsName = th.getClassInfo(objRef).getName();
 		      return th.createAndThrowException("java.lang.NoSuchMethodError", clsName + '.' + mname);
 		    }
