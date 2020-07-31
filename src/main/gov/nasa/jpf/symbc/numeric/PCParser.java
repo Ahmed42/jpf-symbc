@@ -67,6 +67,7 @@ import gov.nasa.jpf.symbc.string.StringExpression;
 import gov.nasa.jpf.symbc.string.StringOperator;
 import gov.nasa.jpf.symbc.string.StringSymbolic;
 import gov.nasa.jpf.symbc.string.SymbolicCharAtInteger;
+import gov.nasa.jpf.symbc.string.SymbolicHashCode;
 import gov.nasa.jpf.symbc.string.SymbolicIndexOf2Integer;
 import gov.nasa.jpf.symbc.string.SymbolicIndexOfChar2Integer;
 import gov.nasa.jpf.symbc.string.SymbolicIndexOfCharInteger;
@@ -104,6 +105,12 @@ public class PCParser {
   //	 Converts IntegerExpression's into DP's IntExp's
   static Object getExpression(IntegerExpression eRef) {
     assert eRef != null;
+    
+    if(eRef instanceof IntegerConstant) {
+    	return pb.makeIntConst(((IntegerConstant) eRef).value);
+    }
+    
+    
     assert !(eRef instanceof IntegerConstant);
 
     /*if (eRef instanceof SymbolicInteger) {
@@ -1259,6 +1266,27 @@ getExpression(stoex.value)), newae));
 	    		newDPConstraint = groupedDPConstraints;
 	    	} else if(constraint instanceof StringConstraint) {
 	    		newDPConstraint = buildDPStringConstraint((StringConstraint) constraint);
+	    	} else if(constraint instanceof NullConstraint) {
+	    		NullConstraint nullConstraint = (NullConstraint) constraint;
+	    		
+	    		Expression expression = nullConstraint.getExpression();
+	    		Object dpExpression = null;
+	    		
+	    		if(expression instanceof StringExpression) {
+	    			dpExpression = getExpression((StringExpression) expression);
+	    		} else if(expression instanceof SymbolicInteger) {
+	    			dpExpression = getExpression((SymbolicInteger) expression);
+	    		} else if(expression instanceof IntegerExpression) {
+	    			dpExpression = getExpression((IntegerExpression) expression);
+	    		} else if(expression instanceof RealExpression) {
+	    			dpExpression = getExpression((RealExpression) expression);
+	    		}
+	    		
+	    		if(nullConstraint.getNullIndicator() == NullIndicator.NULL) {
+	    			newDPConstraint = pb.makeIsNull(dpExpression);
+	    		} else {
+	    			newDPConstraint = pb.not(pb.makeIsNull(dpExpression));
+	    		}
 	    	}
 	    	
 	    	if(pb.isFalse(newDPConstraint)) { // unsat
@@ -1293,7 +1321,7 @@ getExpression(stoex.value)), newae));
 		  //mkAt (SeqExpr s, IntExpr index)
 		  //dpExpr = pb.makeAt(sourceExp, indexExp);
 		  //mkCharAt (SeqExpr s, IntExpr index)
-		  dpExpr = pb.makeCharAt(sourceExp, indexExp);
+		  dpExpr = pb.makeCharAt(getExpression(sourceExp), getExpression(indexExp));
 		  
 	  } else if(exp instanceof SymbolicIndexOfInteger) {
 		  // "some string".indexOf("str");
@@ -1302,7 +1330,7 @@ getExpression(stoex.value)), newae));
 		  StringExpression targetExp = sExp.getExpression();
 		  
 		// ctx.mkIndexOf(arg0, arg1, 0);
-		  dpExpr = pb.makeIndexOfStr(sourceExp, targetExp);
+		  dpExpr = pb.makeIndexOfStr(getExpression(sourceExp), getExpression(targetExp));
 		  
 	  } else if(exp instanceof SymbolicIndexOf2Integer) {
 		  // "some string".indexOf("str", 2);
@@ -1313,7 +1341,7 @@ getExpression(stoex.value)), newae));
 		  IntegerExpression minIndexExp = sExp.getMinIndex();
 		  
 		  // ctx.mkIndexOf(arg0, arg1, arg2);
-		  dpExpr = pb.makeIndexOfStr(sourceExp, targetExp, minIndexExp);
+		  dpExpr = pb.makeIndexOfStr(getExpression(sourceExp), getExpression(targetExp), getExpression(minIndexExp));
 		  
 	  } else if(exp instanceof SymbolicIndexOfCharInteger) {
 		 // "some string".indexOf(0x41);
@@ -1324,7 +1352,7 @@ getExpression(stoex.value)), newae));
 		  IntegerExpression targetExp = sExp.getExpression();
 		  
 		// ctx.mkIndexOf(arg0, arg1, 0);
-		  dpExpr = pb.makeIndexOfChar(sourceExp, targetExp);
+		  dpExpr = pb.makeIndexOfChar(getExpression(sourceExp), getExpression(targetExp));
 		  
 	  } else if(exp instanceof SymbolicIndexOfChar2Integer) {
 		  // "some string".indexOf(0x41, 3);
@@ -1336,7 +1364,7 @@ getExpression(stoex.value)), newae));
 		  IntegerExpression minIndexExp = sExp.getMinDist();
 		  
 		 // ctx.mkIndexOf(arg0, arg1, arg2);
-		  dpExpr = pb.makeIndexOfChar(sourceExp, targetExp, minIndexExp);
+		  dpExpr = pb.makeIndexOfChar(getExpression(sourceExp), getExpression(targetExp), getExpression(minIndexExp));
 		  
 	  } else if(exp instanceof SymbolicLastIndexOf2Integer) {
 		  
@@ -1353,6 +1381,13 @@ getExpression(stoex.value)), newae));
 		  
 		  // ctx.mkLength(arg0)
 		  dpExpr = pb.makeLength(getExpression(strExpr));
+	  } else if(exp instanceof SymbolicHashCode) {
+		  SymbolicHashCode sExp = (SymbolicHashCode) exp;
+		  
+		  StringExpression strExpr = sExp.getExpression();
+		  
+		  dpExpr = pb.makeHashCode(getExpression(strExpr));
+		  
 	  } else {
 		  dpExpr = symIntegerVar.get(exp);
 	      if (dpExpr == null) {
