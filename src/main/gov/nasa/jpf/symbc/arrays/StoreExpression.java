@@ -26,13 +26,14 @@ import gov.nasa.jpf.symbc.numeric.IntegerExpression;
 
 import java.util.Map;
 
-public class StoreExpression extends Expression {
+public class StoreExpression extends ArrayExpression {
     public ArrayExpression arrayExpression;
     public IntegerExpression indexExpression;
 
     public IntegerExpression value;
 
     public StoreExpression(ArrayExpression ae, IntegerExpression ie, IntegerExpression val) {
+    	super(ae);
         this.arrayExpression = ae;
         this.indexExpression = ie;
         this.value = val;
