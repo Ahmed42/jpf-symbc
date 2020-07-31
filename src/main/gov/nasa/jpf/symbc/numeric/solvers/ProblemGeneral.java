@@ -333,4 +333,12 @@ public abstract class ProblemGeneral{
 	public Object makeIsEmpty(Object strDPExpr) {
 		throw new RuntimeException("## Error : makeIsEmpty not supported");
 	}
+	
+	public Object makeIsNull(Object dpExpr) {
+		throw new RuntimeException("## Error : makeIsNull not supported");
+	}
+	
+	public Object makeHashCode(Object strDPExpr) {
+		throw new RuntimeException("## Error : makeHashCode not supported");
+	}
 }
