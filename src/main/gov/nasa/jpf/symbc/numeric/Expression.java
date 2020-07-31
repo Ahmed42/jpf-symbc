@@ -48,5 +48,7 @@ public abstract class Expression implements Comparable<Expression> {
     public abstract void getVarsVals(Map<String,Object> varsVals);
 	public abstract void accept(ConstraintExpressionVisitor visitor);
 	public String prefix_notation() {throw new RuntimeException("error printing");}
-	
+	// Ideally, this should only be present in SymbolicString and SymbolicInteger, 
+	// but since this the most recent common ancestor, we have no choice. 
+	public boolean isLazyInitialized; 
 }

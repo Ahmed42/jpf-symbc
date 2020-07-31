@@ -55,7 +55,7 @@ import gov.nasa.jpf.symbc.numeric.IntegerExpression;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
 
 public class StringSymbolic extends StringExpression {
-
+	
   public static final String UNDEFINED = "**UNDEFINED**";
   public String solution = UNDEFINED;
   public static String SYM_STRING_SUFFIX = "_SYMSTRING";
@@ -66,14 +66,16 @@ public class StringSymbolic extends StringExpression {
 	   super();
 
 	   StringPathCondition.flagSolved = false;
+	   isLazyInitialized = false;
   }
 
   public StringSymbolic(String n) {
     super();
     name = n;
-    //length = new SymbolicInteger(name + ".length");
+    length = new SymbolicInteger(name + ".length");
 	trackedSymVars.add(fixName(name));
 	StringPathCondition.flagSolved=false;
+	isLazyInitialized = false;
   }
 
   public StringSymbolic clone() {
