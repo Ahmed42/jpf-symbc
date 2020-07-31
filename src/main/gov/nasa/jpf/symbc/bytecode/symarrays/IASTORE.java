@@ -31,6 +31,7 @@ import gov.nasa.jpf.symbc.numeric.IntegerExpression;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
 import gov.nasa.jpf.symbc.numeric.PCChoiceGenerator;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
+import gov.nasa.jpf.symbc.numeric.Expression;
 
 import gov.nasa.jpf.vm.ArrayIndexOutOfBoundsExecutiveException;
 import gov.nasa.jpf.vm.ChoiceGenerator;
@@ -65,9 +66,22 @@ public class IASTORE extends gov.nasa.jpf.jvm.bytecode.IASTORE {
           // Retrieve the array expression if it was previously in the pathcondition, and store it as an array attr
           PCChoiceGenerator temp_cg = (PCChoiceGenerator)ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
           if (temp_cg != null) {
-              if (temp_cg.getCurrentPC().arrayExpressions.containsKey(ti.getElementInfo(ti.getModifiableTopFrame().peek(2)).toString())) {
+              /*if (temp_cg.getCurrentPC().arrayExpressions.containsKey(ti.getElementInfo(ti.getModifiableTopFrame().peek(2)).toString())) {
                   ti.getModifiableTopFrame().setOperandAttr(2, temp_cg.getCurrentPC().arrayExpressions.get(ti.getElementInfo(ti.getModifiableTopFrame().peek(2)).toString()));
-              }
+              }*/
+              
+              Object arrAttr = peekArrayAttr(ti);
+              
+              if(arrAttr != null) {
+            	  // getName() should work, but just in case
+            	  String arrayExprToResolveName = ((Expression) arrAttr).stringPC();
+            	  
+            	  ArrayExpression resolvedArrExpr = temp_cg.getCurrentPC().arrayExpressions.get(arrayExprToResolveName);
+            	  
+            	  if(resolvedArrExpr != null) {
+            		  ti.getModifiableTopFrame().setOperandAttr(2, resolvedArrExpr);
+            	  }
+              } 
           }
     
           // If only the value is symbolic, we use the concrete instruction
