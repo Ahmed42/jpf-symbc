@@ -87,6 +87,7 @@ public class ProblemZ3 extends ProblemGeneral {
 
 	private Solver solver;
 	private Context ctx;
+	private static final int BIT_VEC_LENGTH = 16;
 
 	// Do we use the floating point theory or linear arithmetic over reals
 	private boolean useFpForReals = false;
@@ -154,6 +155,14 @@ public class ProblemZ3 extends ProblemGeneral {
 	// should we use Expr or ArithExpr?
 	public Object eq(Object exp1, Object exp2){
 		try{
+			if(exp1 instanceof BitVecExpr) {
+				exp1 = ctx.mkBV2Int((BitVecExpr)exp1, false);
+			}
+			
+			if(exp2 instanceof BitVecExpr) {
+				exp2 = ctx.mkBV2Int((BitVecExpr)exp2, false);
+			}
+			
 			return  ctx.mkEq((Expr)exp1, (Expr)exp2);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -194,7 +203,16 @@ public class ProblemZ3 extends ProblemGeneral {
 
 	public Object neq(Object exp1, Object exp2){
 		try{
+			if(exp1 instanceof BitVecExpr) {
+				exp1 = ctx.mkBV2Int((BitVecExpr)exp1, false);
+			}
+			
+			if(exp2 instanceof BitVecExpr) {
+				exp2 = ctx.mkBV2Int((BitVecExpr)exp2, false);
+			}
+			
 			return  ctx.mkNot(ctx.mkEq((Expr)exp1, (Expr)exp2));
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("## Error Z3: Exception caught in Z3 JNI: \n" + e);
@@ -294,7 +312,8 @@ public class ProblemZ3 extends ProblemGeneral {
 
 	public Object geq(Object exp, long value){
 		try{
-			return  ctx.mkGe((IntExpr)exp,ctx.mkInt(value));
+			IntExpr expInt = exp instanceof BitVecExpr? ctx.mkBV2Int((BitVecExpr)exp, false) : (IntExpr) exp;
+			return  ctx.mkGe(expInt,ctx.mkInt(value));
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("## Error Z3: Exception caught in Z3 JNI: \n" + e);
@@ -304,7 +323,11 @@ public class ProblemZ3 extends ProblemGeneral {
 
 	public Object geq(Object exp1, Object exp2){
 		try{
-			return  ctx.mkGe((ArithExpr)exp1,(ArithExpr)exp2);
+			//return  ctx.mkGe((ArithExpr)exp1,(ArithExpr)exp2);
+			
+			ArithExpr exp1Arith = exp1 instanceof BitVecExpr? ctx.mkBV2Int((BitVecExpr)exp1, false) : (ArithExpr) exp1;
+			ArithExpr exp2Arith = exp2 instanceof BitVecExpr? ctx.mkBV2Int((BitVecExpr)exp2, false) : (ArithExpr) exp2;
+			return  ctx.mkGe(exp1Arith, exp2Arith);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("## Error Z3: Exception caught in Z3 JNI: \n" + e);
@@ -334,7 +357,13 @@ public class ProblemZ3 extends ProblemGeneral {
 //
 	public Object lt(long value, Object exp){
 		try{
-			return  ctx.mkLt(ctx.mkInt(value),(IntExpr)exp);
+			if(exp instanceof IntExpr) {
+				return ctx.mkLt(ctx.mkInt(value),(IntExpr)exp);
+			} else {
+				BitVecExpr valueBV = ctx.mkBV(value, BIT_VEC_LENGTH);
+				BitVecExpr expBV = (BitVecExpr) exp;
+				return ctx.mkBVULT(valueBV, expBV);
+			}			
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("## Error Z3: Exception caught in Z3 JNI: \n" + e);
@@ -344,7 +373,14 @@ public class ProblemZ3 extends ProblemGeneral {
 
 	public Object lt(Object exp, long value){
 		try{
-			return  ctx.mkLt((IntExpr)exp,ctx.mkInt(value));
+			if(exp instanceof IntExpr) {
+				return  ctx.mkLt((IntExpr)exp,ctx.mkInt(value));
+			} else {
+				BitVecExpr valueBV = ctx.mkBV(value, BIT_VEC_LENGTH);
+				BitVecExpr expBV = (BitVecExpr) exp;
+				return ctx.mkBVULT(expBV, valueBV);
+			}	
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("## Error Z3: Exception caught in Z3 JNI: \n" + e);
@@ -354,7 +390,9 @@ public class ProblemZ3 extends ProblemGeneral {
 
 	public Object lt(Object exp1, Object exp2){
 		try{
-			return  ctx.mkLt((ArithExpr)exp1,(ArithExpr)exp2);
+			ArithExpr exp1Arith = exp1 instanceof BitVecExpr? ctx.mkBV2Int((BitVecExpr)exp1, false) : (ArithExpr) exp1;
+			ArithExpr exp2Arith = exp2 instanceof BitVecExpr? ctx.mkBV2Int((BitVecExpr)exp2, false) : (ArithExpr) exp2;
+			return  ctx.mkLt(exp1Arith, exp2Arith);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("## Error Z3: Exception caught in Z3 JNI: \n" + e);
@@ -968,7 +1006,15 @@ public class ProblemZ3 extends ProblemGeneral {
 
 	@Override
 	public Object and(long value, Object exp) {
-		throw new RuntimeException("## Error Z3 \n");
+		try {
+			BitVecExpr expBV = exp instanceof BitVecExpr? (BitVecExpr) exp : ctx.mkInt2BV(BIT_VEC_LENGTH, (IntExpr) exp);
+			BitVecExpr exp2BV = ctx.mkBV(value, BIT_VEC_LENGTH);
+			
+			return ctx.mkBVAND(expBV, exp2BV);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3: Exception caught in Z3 JNI: \n" + e);
+		}
 	}
 
 	@Override
@@ -976,13 +1022,33 @@ public class ProblemZ3 extends ProblemGeneral {
 		throw new RuntimeException("## Error Z3 \n");
 	}
 
+	// Implements both boolean and bitwise and
 	@Override
 	public Object and(Object exp1, Object exp2) {
 		if(exp1 instanceof BoolExpr && exp2 instanceof BoolExpr) {
 			return ctx.mkAnd((BoolExpr) exp1, (BoolExpr) exp2);
 		} else {
-			throw new RuntimeException("## Error Z3: Given expression(s) is not boolean. \n");
-		}
+			BitVecExpr exp1BV;
+			BitVecExpr exp2BV;
+			
+			if(exp1 instanceof BitVecExpr) {
+				exp1BV = (BitVecExpr) exp1;
+			} else if(exp1 instanceof IntExpr) {
+				exp1BV = ctx.mkInt2BV(BIT_VEC_LENGTH, (IntExpr)exp1);
+			} else {
+				throw new RuntimeException("## Error Z3: Given expression(s) is neither numerical nor boolean. \n");
+			}
+			
+			if(exp2 instanceof BitVecExpr) {
+				exp2BV = (BitVecExpr) exp2;
+			} else if(exp2 instanceof IntExpr) {
+				exp2BV = ctx.mkInt2BV(BIT_VEC_LENGTH, (IntExpr)exp2);
+			} else {
+				throw new RuntimeException("## Error Z3: Given expression(s) is neither numerical nor boolean. \n");
+			}
+		
+			return ctx.mkBVAND(exp1BV, exp2BV);
+		} 
 	}
 
 	@Override
@@ -1017,7 +1083,17 @@ public class ProblemZ3 extends ProblemGeneral {
 
 	@Override
 	public Object xor(Object exp1, Object exp2) {
-		throw new RuntimeException("## Error Z3 \n");
+		try {
+			BitVecExpr left = exp1 instanceof BitVecExpr? (BitVecExpr) exp1 : ctx.mkInt2BV(BIT_VEC_LENGTH, (IntExpr) exp1);
+			BitVecExpr right = exp2 instanceof BitVecExpr? (BitVecExpr) exp2 : ctx.mkInt2BV(BIT_VEC_LENGTH, (IntExpr) exp2);
+			
+			BitVecExpr result = ctx.mkBVXOR(left, right);
+			
+			return result;
+		} catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("## Error Z3: Exception caught in Z3 JNI: \n" + e);
+        }
 	}
 
 	@Override
@@ -1057,7 +1133,17 @@ public class ProblemZ3 extends ProblemGeneral {
 
 	@Override
 	public Object shiftUR(Object exp, long value) {
-		throw new RuntimeException("## Error Z3 \n");
+		try {
+			BitVecExpr targetBV = exp instanceof BitVecExpr? (BitVecExpr) exp : ctx.mkInt2BV(BIT_VEC_LENGTH, (IntExpr) exp);
+			BitVecExpr shiftVal = ctx.mkBV(value, BIT_VEC_LENGTH);
+			
+			BitVecExpr result = ctx.mkBVLSHR(targetBV, shiftVal);
+			
+			return result;
+		} catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("## Error Z3: Exception caught in Z3 JNI: \n" + e);
+        }
 	}
 
 	@Override
@@ -1067,8 +1153,12 @@ public class ProblemZ3 extends ProblemGeneral {
 
 	@Override
 	public Object mixed(Object exp1, Object exp2) {
-		// TODO Auto-generated method stub
-		throw new RuntimeException("## Error Z3 \n");
+		try {
+			return ctx.mkEq((Expr) exp1, (Expr) exp2);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3: Exception caught in Z3 JNI: \n" + e);
+		}
 	}
 
     @Override
@@ -1131,7 +1221,8 @@ public class ProblemZ3 extends ProblemGeneral {
     @Override
     public Object select(Object exp1, Object exp2) {
         try {
-            return ctx.mkSelect((ArrayExpr)exp1, (IntExpr)exp2);
+        	IntExpr index = exp2 instanceof BitVecExpr ? ctx.mkBV2Int((BitVecExpr)exp2, false) : (IntExpr) exp2;
+            return ctx.mkSelect((ArrayExpr)exp1, index);
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
@@ -1141,7 +1232,8 @@ public class ProblemZ3 extends ProblemGeneral {
     @Override
     public Object store(Object exp1, Object exp2, Object exp3) {
         try {
-            return ctx.mkStore((ArrayExpr)exp1, (IntExpr)exp2, (IntExpr)exp3);
+        	IntExpr exp2Int = exp2 instanceof BitVecExpr? ctx.mkBV2Int((BitVecExpr) exp2, false) : (IntExpr) exp2;
+            return ctx.mkStore((ArrayExpr)exp1, exp2Int, (Expr)exp3);
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
@@ -1454,6 +1546,29 @@ public class ProblemZ3 extends ProblemGeneral {
     public Object makeIsEmpty(Object strDPExpr) {
     	try {
     		return ctx.mkEq(ctx.mkLength((SeqExpr) strDPExpr), ctx.mkInt(0));
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    @Override
+    public Object makeIsNull(Object dpExpr) {
+    	try {
+    		FuncDecl isNullDecl = ctx.mkFuncDecl("isNull", new Sort[] { ((Expr)dpExpr).getSort() }, ctx.getBoolSort());
+    		return ctx.mkEq(ctx.mkApp(isNullDecl, (Expr) dpExpr), ctx.mkTrue());
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+    
+    @Override
+    public Object makeHashCode(Object strDPExpr) {
+		try {
+			// ctx.getIntSort()
+			FuncDecl isNullDecl = ctx.mkFuncDecl("hashCode", new Sort[] { ctx.getStringSort() }, ctx.mkBitVecSort(BIT_VEC_LENGTH));
+    		return ctx.mkApp(isNullDecl, (Expr) strDPExpr);
 		} catch(Exception e) {
 			e.printStackTrace();
             throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
