@@ -127,7 +127,7 @@ public class Helper {
 	}
 
 
-	  public static int addNewHeapNode(ClassInfo typeClassInfo, ThreadInfo ti, Object attr,
+	  public static HeapNode addNewHeapNode(ClassInfo typeClassInfo, ThreadInfo ti, Object attr,
 			  PathCondition pcHeap, SymbolicInputHeap symInputHeap,
 			  int numSymRefs, HeapNode[] prevSymRefs, boolean setShared) {
 		  if(typeClassInfo.isAbstract()) {
@@ -173,7 +173,6 @@ public class Helper {
 
           // Put symbolic array in PC if we create a new array.
           if (typeClassInfo.isArray()) {
-        	  System.out.println("In Helper: " + refChain);
               String typeClass = typeClassInfo.getType();
               ArrayExpression arrayAttr = null;
               if (typeClass.charAt(1) != 'L') {
@@ -184,7 +183,10 @@ public class Helper {
             	  arrayAttr = new ArrayExpression(refChain, typeClass.substring(2, typeClass.length() -1));
               }
               //ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class).getCurrentPC().arrayExpressions.put(eiRef.toString(), arrayAttr);
-              ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class).getCurrentPC().arrayExpressions.put(refChain, arrayAttr);
+              PCChoiceGenerator choiceGen = ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
+              PathCondition pc = choiceGen.getCurrentPC();
+              pc.arrayExpressions.put(refChain, arrayAttr);
+              choiceGen.setCurrentPC(pc);
           }
 
 		  // create new HeapNode based on above info
@@ -196,7 +198,7 @@ public class Helper {
 		  //pcHeap._addDet(Comparator.EQ, newSymRef, new IntegerConstant(numSymRefs));
 		  for (int i=0; i< numSymRefs; i++)
 			  pcHeap._addDet(Comparator.NE, n.getSymbolic(), prevSymRefs[i].getSymbolic());
-		  return daIndex;
+		  return n;
 	  }
 
 	  public static HelperResult addNewArrayHeapNode(ClassInfo typeClassInfo, ThreadInfo ti, Object attr,
