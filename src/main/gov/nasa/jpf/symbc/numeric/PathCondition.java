@@ -112,7 +112,9 @@ public class PathCondition implements Comparable<PathCondition> {
         pc_new.count = this.count;
         pc_new.spc = this.spc.make_copy(pc_new); // TODO: to review
         pc_new.solverCalls = this.solverCalls;
-        pc_new.arrayExpressions = this.arrayExpressions;
+        pc_new.arrayExpressions = new HashMap<>(this.arrayExpressions);
+        //pc_new.arrayExpressions = this.arrayExpressions;
+        //pc_new.arrayExpressions = new HashMap<String, ArrayExpression>(arrayExpressions);
         return pc_new;
     }
 
@@ -439,13 +441,13 @@ public class PathCondition implements Comparable<PathCondition> {
     }
 
     public String stringPC() {
-        return "constraint # = " + count + ((header == null) ? "" : "\n" + header.stringPC())
-        		+ "\nString Constraints: " + spc;
+        return "constraint # = " + count + ((header == null) ? "" : "\n" + header.stringPC());
+        		//+ "\nString Constraints: " + spc;
     }
 
     public String toString() {
-        return "constraint # = " + count + ((header == null) ? "" : "\n" + header.toString())
-        		+ "\nString Constraints: " + spc;
+        return "constraint # = " + count + ((header == null) ? "" : "\n" + header.toString());
+        		//+ "\nString Constraints: " + spc;
         // return ((header == null) ? "" : " " + header.toString()); -- for
         // specialization
         // + "\n" + spc.toString(); // TODO: to review
