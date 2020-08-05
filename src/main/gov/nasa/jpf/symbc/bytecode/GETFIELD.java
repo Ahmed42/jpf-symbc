@@ -20,6 +20,7 @@ package gov.nasa.jpf.symbc.bytecode;
 
 import gov.nasa.jpf.Config;
 import gov.nasa.jpf.symbc.SymbolicInstructionFactory;
+import gov.nasa.jpf.symbc.arrays.ArrayExpression;
 import gov.nasa.jpf.symbc.heap.HeapChoiceGenerator;
 import gov.nasa.jpf.symbc.heap.HeapNode;
 import gov.nasa.jpf.symbc.heap.Helper;
@@ -28,6 +29,7 @@ import gov.nasa.jpf.symbc.numeric.Comparator;
 import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
 import gov.nasa.jpf.symbc.numeric.NullIndicator;
+import gov.nasa.jpf.symbc.numeric.PCChoiceGenerator;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
 import gov.nasa.jpf.symbc.string.StringComparator;
@@ -200,6 +202,7 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 	  StringSymbolic strResult = null;
 	  SymbolicInteger refResult = null;
 	  
+	  	  
 	  if (currentChoice < numSymRefs) { // lazy initialization using a previously lazily initialized object
 		  HeapNode candidateNode = prevSymRefs[currentChoice];
 		  // here we should update pcHeap with the constraint attr == candidateNode.sym_v
@@ -214,16 +217,28 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 			  if(typeClassInfo.isArray()) {
 				  refResult = candidateNode.getSymbolic();
 				  refResult.isLazyInitialized = true;
+				  
+				  PCChoiceGenerator choiceGen = ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
+				  
+				  PathCondition pc = choiceGen.getCurrentPC();
+				  
+				  ArrayExpression aliasArrExp = pc.arrayExpressions.get(refResult.getName());
+				  
+				  pc.arrayExpressions.put(((SymbolicInteger) attr).getName(), aliasArrExp);
+				  
+				  choiceGen.setCurrentPC(pc);
 			  }
 		  }
 		  
           daIndex = candidateNode.getIndex();
+          System.out.println("\tGETFIELD\tAlias option");
 	  }
 	  else if (currentChoice == numSymRefs){ //null object
 		  //pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, new IntegerConstant(-1));
 		  pcHeap._addDet((Expression) attr, NullIndicator.NULL);
 		  daIndex = MJIEnv.NULL;//-1;
 		  //result = null;
+		  System.out.println("\tGETFIELD\tNull option");
 	  }
 	  else if (currentChoice == (numSymRefs + 1) && !abstractClass) {
 		  // creates a new object with all fields symbolic and adds the object to SymbolicHeap
@@ -234,15 +249,18 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 			  strResult = node.getStringSymbolic();
 			  strResult.isLazyInitialized = true;
 		  }  else {
-			  daIndex = Helper.addNewHeapNode(typeClassInfo, ti, attr, pcHeap,
+			  HeapNode newNode = Helper.addNewHeapNode(typeClassInfo, ti, attr, pcHeap,
 				  		symInputHeap, numSymRefs, prevSymRefs, ei.isShared());
 			  
+			  daIndex = newNode.getIndex();
+			  
 			  if(typeClassInfo.isArray()) {
-				  // We might need to get the symbol created in the Helper method
-				  refResult = (SymbolicInteger) attr;
+				  refResult = newNode.getSymbolic();
 				  refResult.isLazyInitialized = true;
 			  }
 		  }
+		  
+		  System.out.println("\tGETFIELD\tNew object option");
 		  
 	  } else {
 		  System.err.println("subtyping not handled");

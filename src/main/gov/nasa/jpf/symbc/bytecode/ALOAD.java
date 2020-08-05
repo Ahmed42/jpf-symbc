@@ -30,6 +30,7 @@ import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
 import gov.nasa.jpf.symbc.numeric.IntegerExpression;
 import gov.nasa.jpf.symbc.numeric.NullIndicator;
+import gov.nasa.jpf.symbc.numeric.PCChoiceGenerator;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
 import gov.nasa.jpf.symbc.string.StringComparator;
@@ -83,7 +84,7 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 
 
 		// || attr instanceof StringExpression 
-		if(attr == null || typeOfLocalVar.equals("?") || attr instanceof SymbolicStringBuilder  || attr instanceof ArrayExpression) {
+		if(attr == null || typeOfLocalVar.equals("?") || attr instanceof SymbolicStringBuilder) {
 			return super.execute(th);
 		}
 		
@@ -182,12 +183,16 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 				  }
 			}
 			daIndex = candidateNode.getIndex();
+			
+			System.out.println("\tALOAD\tAlias option");
 		}
 		else if (currentChoice == numSymRefs && !(((Expression)attr).toString()).contains("this")){ //null object
 			//pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, new IntegerConstant(-1));
 			pcHeap._addDet((Expression) attr, NullIndicator.NULL);
 			daIndex = MJIEnv.NULL;
 			strResult = null;
+			
+			System.out.println("\tALOAD\tNull option");
 		}
 		else if ((currentChoice == (numSymRefs + 1) && !abstractClass) | (currentChoice == numSymRefs && (((Expression)attr).toString()).contains("this"))) {
 			//creates a new object with all fields symbolic
@@ -199,15 +204,29 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 				  strResult = node.getStringSymbolic();
 				  strResult.isLazyInitialized = true;
 			} else {
-				  daIndex = Helper.addNewHeapNode(typeClassInfo, th, attr, pcHeap,
+				  HeapNode newNode = Helper.addNewHeapNode(typeClassInfo, th, attr, pcHeap,
 							symInputHeap, numSymRefs, prevSymRefs, shared);
+				  
+				  daIndex = newNode.getIndex();
 				  
 				  if(typeClassInfo.isArray()) {
 					  // We might need to get the symbol created in the Helper method
-					  refResult = (SymbolicInteger) attr;
+					  refResult = newNode.getSymbolic();
 					  refResult.isLazyInitialized = true;
+					  
+					  PCChoiceGenerator choiceGen = th.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
+					  
+					  PathCondition pc = choiceGen.getCurrentPC();
+					  
+					  ArrayExpression aliasArrExp = pc.arrayExpressions.get(refResult.getName());
+					  
+					  pc.arrayExpressions.put(((SymbolicInteger) attr).getName(), aliasArrExp);
+					  
+					  choiceGen.setCurrentPC(pc);
 				  }
 			}
+			
+			System.out.println("\tALOAD\tNew object option");
 		} else {
 			//TODO: fix subtypes
 			System.err.println("subtypes not handled");
