@@ -21,6 +21,7 @@ package gov.nasa.jpf.symbc.bytecode;
 import gov.nasa.jpf.Config;
 import gov.nasa.jpf.JPFException;
 import gov.nasa.jpf.symbc.SymbolicInstructionFactory;
+import gov.nasa.jpf.symbc.arrays.ArrayExpression;
 import gov.nasa.jpf.symbc.heap.HeapChoiceGenerator;
 import gov.nasa.jpf.symbc.heap.HeapNode;
 import gov.nasa.jpf.symbc.heap.Helper;
@@ -29,6 +30,7 @@ import gov.nasa.jpf.symbc.numeric.Comparator;
 import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
 import gov.nasa.jpf.symbc.numeric.NullIndicator;
+import gov.nasa.jpf.symbc.numeric.PCChoiceGenerator;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
 import gov.nasa.jpf.symbc.string.StringComparator;
@@ -181,7 +183,8 @@ public class GETSTATIC extends gov.nasa.jpf.jvm.bytecode.GETSTATIC {
 
 		int daIndex = 0; // index into JPF's dynamic area
 		
-		StringSymbolic result = null;
+		StringSymbolic strResult = null;
+		SymbolicInteger refResult = null;
 		
 		if (currentChoice < numSymRefs) { // lazy initialization
 			HeapNode candidateNode = prevSymRefs[currentChoice];
@@ -189,17 +192,33 @@ public class GETSTATIC extends gov.nasa.jpf.jvm.bytecode.GETSTATIC {
 			if (attr instanceof StringSymbolic) {
 				StringSymbolic symVar = ((StringHeapNode) candidateNode).getStringSymbolic();
 				pcHeap.spc._addDet(StringComparator.EQ, (StringSymbolic) attr, symVar);
-				result = symVar;
+				strResult = symVar;
+				strResult.isLazyInitialized = true;
 			} else {
 				pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, candidateNode.getSymbolic());
-				daIndex = candidateNode.getIndex();
+				
+				if(typeClassInfo.isArray()) {
+					  refResult = candidateNode.getSymbolic();
+					  refResult.isLazyInitialized = true;
+					  
+					  PCChoiceGenerator choiceGen = ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
+					  
+					  PathCondition pc = choiceGen.getCurrentPC();
+					  
+					  ArrayExpression aliasArrExp = pc.arrayExpressions.get(refResult.getName());
+					  
+					  pc.arrayExpressions.put(((SymbolicInteger) attr).getName(), aliasArrExp);
+					  
+					  choiceGen.setCurrentPC(pc);
+				  }
 			}
+			
+			daIndex = candidateNode.getIndex();
 		}
 		else if (currentChoice == numSymRefs) { //existing (null)
 			//pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, new IntegerConstant(-1));
 			pcHeap._addDet((Expression) attr, NullIndicator.NULL);
 			daIndex = MJIEnv.NULL;
-			result = null;
 		} else if (currentChoice == (numSymRefs + 1) && !abstractClass) {
 			  // creates a new object with all fields symbolic and adds the object to SymbolicHeap
 			if(attr instanceof StringSymbolic) {
@@ -207,10 +226,18 @@ public class GETSTATIC extends gov.nasa.jpf.jvm.bytecode.GETSTATIC {
 					  		symInputHeap, numSymRefs, prevSymRefs, ei.isShared());
 				daIndex = node.getIndex();
 				
-				result = node.getStringSymbolic();
+				strResult = node.getStringSymbolic();
+				strResult.isLazyInitialized = true;
 			} else {
-				daIndex = Helper.addNewHeapNode(typeClassInfo, ti, attr, pcHeap,
+				HeapNode newNode = Helper.addNewHeapNode(typeClassInfo, ti, attr, pcHeap,
 					  		symInputHeap, numSymRefs, prevSymRefs, ei.isShared());
+				
+				daIndex = newNode.getIndex();
+				
+				if(typeClassInfo.isArray()) {
+					  refResult = newNode.getSymbolic();
+					  refResult.isLazyInitialized = true;
+				  }
 			}
 		  } else {
 			  //TODO: fix
@@ -218,22 +245,24 @@ public class GETSTATIC extends gov.nasa.jpf.jvm.bytecode.GETSTATIC {
 		  }
 
 		StackFrame frame = ti.getModifiableTopFrame();
+		frame.pushRef(daIndex);
 		
 		ei.setReferenceField(fi,daIndex );
 		if(attr instanceof StringSymbolic) {
-			StringSymbolic oldAttr = (StringSymbolic) attr;
+			//StringSymbolic oldAttr = (StringSymbolic) attr;
 			//((StringSymbolic) attr).isLazyInitialized = true;
-			StringSymbolic newAttr = new StringSymbolic(oldAttr.getName());
-			newAttr.isLazyInitialized = true;
-			ei.setFieldAttr(fi, newAttr);
-			frame.setOperandAttr(result);
-		} else {
+			//StringSymbolic newAttr = new StringSymbolic(oldAttr.getName());
+			//newAttr.isLazyInitialized = true;
+			ei.setFieldAttr(fi, strResult);
+			frame.setOperandAttr(strResult);
+		} else if(typeClassInfo.isArray()) {
+			 ei.setFieldAttr(fi, refResult);
+			 frame.setOperandAttr(refResult);
+			 
+		 } else {
 			ei.setFieldAttr(fi, null);//Helper.SymbolicNull); // was null
 		}
 		
-		
-		frame.pushRef(daIndex);
-		frame.setOperandAttr(result);
 		  
 		
 		((HeapChoiceGenerator)heapCG).setCurrentPCheap(pcHeap);
