@@ -26,13 +26,14 @@ import gov.nasa.jpf.symbc.numeric.RealExpression;
 
 import java.util.Map;
 
-public class RealStoreExpression extends Expression {
+public class RealStoreExpression extends ArrayExpression {
     public ArrayExpression arrayExpression;
     public IntegerExpression indexExpression;
 
     public RealExpression value;
 
     public RealStoreExpression(ArrayExpression ae, IntegerExpression ie, RealExpression val) {
+    	super(ae);
         this.arrayExpression = ae;
         this.indexExpression = ie;
         this.value = val;
