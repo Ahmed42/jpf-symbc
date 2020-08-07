@@ -75,7 +75,7 @@ public class LASTORE extends gov.nasa.jpf.jvm.bytecode.LASTORE {
             	  
             	  
             	  if(resolvedArrExpr != null) {
-            		  ti.getModifiableTopFrame().setOperandAttr(2, resolvedArrExpr);
+            		  ti.getModifiableTopFrame().setOperandAttr(3, resolvedArrExpr);
             	  }
             	  
               }
