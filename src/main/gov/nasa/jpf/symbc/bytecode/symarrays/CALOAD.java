@@ -24,6 +24,7 @@ import gov.nasa.jpf.symbc.SymbolicInstructionFactory;
 import gov.nasa.jpf.symbc.arrays.ArrayExpression;
 import gov.nasa.jpf.symbc.arrays.SelectExpression;
 import gov.nasa.jpf.symbc.numeric.Comparator;
+import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
 import gov.nasa.jpf.symbc.numeric.IntegerExpression;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
@@ -56,8 +57,23 @@ public class CALOAD extends gov.nasa.jpf.jvm.bytecode.CALOAD {
           // Retrieve the array expression if it was previously in the pathcondition
           PCChoiceGenerator temp_cg = (PCChoiceGenerator)ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
           if (temp_cg != null) {
-              if (temp_cg.getCurrentPC().arrayExpressions.containsKey(ti.getElementInfo(ti.getModifiableTopFrame().peek(1)).toString())) {
+              /*if (temp_cg.getCurrentPC().arrayExpressions.containsKey(ti.getElementInfo(ti.getModifiableTopFrame().peek(1)).toString())) {
                   ti.getModifiableTopFrame().setOperandAttr(1, temp_cg.getCurrentPC().arrayExpressions.get(ti.getElementInfo(ti.getModifiableTopFrame().peek(1)).toString()));
+              }*/
+              
+              Object arrAttr = peekArrayAttr(ti);
+
+              if(arrAttr != null) {
+            	  // getName() should work, but just in case
+            	  String arrayExprToResolveName = ((Expression) arrAttr).stringPC();
+            	  
+            	  ArrayExpression resolvedArrExpr = temp_cg.getCurrentPC().arrayExpressions.get(arrayExprToResolveName);
+            	  
+            	  
+            	  if(resolvedArrExpr != null) {
+            		  ti.getModifiableTopFrame().setOperandAttr(1, resolvedArrExpr);
+            	  }
+            	  
               }
           }
 		

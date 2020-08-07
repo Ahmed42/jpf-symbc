@@ -31,6 +31,7 @@ import gov.nasa.jpf.symbc.heap.HeapNode;
 import gov.nasa.jpf.symbc.heap.Helper;
 import gov.nasa.jpf.symbc.heap.SymbolicInputHeap;
 import gov.nasa.jpf.symbc.numeric.Comparator;
+import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
 import gov.nasa.jpf.symbc.numeric.IntegerExpression;
 import gov.nasa.jpf.symbc.numeric.PCChoiceGenerator;
@@ -76,9 +77,24 @@ public class AALOAD extends gov.nasa.jpf.jvm.bytecode.AALOAD {
       PCChoiceGenerator temp_cg = (PCChoiceGenerator)ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
       if (temp_cg != null) {
           // There was a previous pathcondition
-          if (temp_cg.getCurrentPC().arrayExpressions.containsKey(ti.getElementInfo(ti.getModifiableTopFrame().peek(1)).toString())) {
+          /*if (temp_cg.getCurrentPC().arrayExpressions.containsKey(ti.getElementInfo(ti.getModifiableTopFrame().peek(1)).toString())) {
               // The array was previously in the path condition, we retrieve the symbolic element
               ti.getModifiableTopFrame().setOperandAttr(1, temp_cg.getCurrentPC().arrayExpressions.get(ti.getElementInfo(ti.getModifiableTopFrame().peek(1)).toString()));
+          }*/
+          
+          Object arrAttr = peekArrayAttr(ti);
+
+          if(arrAttr != null) {
+        	  // getName() should work, but just in case
+        	  String arrayExprToResolveName = ((Expression) arrAttr).stringPC();
+        	  
+        	  ArrayExpression resolvedArrExpr = temp_cg.getCurrentPC().arrayExpressions.get(arrayExprToResolveName);
+        	  
+        	  
+        	  if(resolvedArrExpr != null) {
+        		  ti.getModifiableTopFrame().setOperandAttr(1, resolvedArrExpr);
+        	  }
+        	  
           }
       }
 	
