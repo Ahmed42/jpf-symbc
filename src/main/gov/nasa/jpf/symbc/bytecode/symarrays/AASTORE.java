@@ -26,6 +26,7 @@ import gov.nasa.jpf.symbc.SymbolicInstructionFactory;
 import gov.nasa.jpf.symbc.arrays.ArrayExpression;
 import gov.nasa.jpf.symbc.arrays.StoreExpression;
 import gov.nasa.jpf.symbc.numeric.Comparator;
+import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
 import gov.nasa.jpf.symbc.numeric.IntegerExpression;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
@@ -63,9 +64,24 @@ public class AASTORE extends gov.nasa.jpf.jvm.bytecode.AASTORE {
           PCChoiceGenerator temp_cg = (PCChoiceGenerator)ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
           if (temp_cg != null) {
               // There was a previous path condition
-              if (temp_cg.getCurrentPC().arrayExpressions.containsKey(ti.getElementInfo(ti.getModifiableTopFrame().peek(2)).toString())) {
+              /*if (temp_cg.getCurrentPC().arrayExpressions.containsKey(ti.getElementInfo(ti.getModifiableTopFrame().peek(2)).toString())) {
                   // There was a previous symbolic object associated to this array. We retrieve it.
                   ti.getModifiableTopFrame().setOperandAttr(2, temp_cg.getCurrentPC().arrayExpressions.get(ti.getElementInfo(ti.getModifiableTopFrame().peek(2)).toString()));
+              }*/
+        	  
+        	  Object arrAttr = peekArrayAttr(ti);
+
+              if(arrAttr != null) {
+            	  // getName() should work, but just in case
+            	  String arrayExprToResolveName = ((Expression) arrAttr).stringPC();
+            	  
+            	  ArrayExpression resolvedArrExpr = temp_cg.getCurrentPC().arrayExpressions.get(arrayExprToResolveName);
+            	  
+            	  
+            	  if(resolvedArrExpr != null) {
+            		  ti.getModifiableTopFrame().setOperandAttr(2, resolvedArrExpr);
+            	  }
+            	  
               }
           }
 
