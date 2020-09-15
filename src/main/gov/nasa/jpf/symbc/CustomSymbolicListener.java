@@ -51,6 +51,7 @@ import gov.nasa.jpf.report.ConsolePublisher;
 import gov.nasa.jpf.report.Publisher;
 import gov.nasa.jpf.report.PublisherExtension;
 import gov.nasa.jpf.search.Search;
+import gov.nasa.jpf.symbc.arrays.ArrayExpression;
 import gov.nasa.jpf.symbc.bytecode.BytecodeUtils;
 import gov.nasa.jpf.symbc.bytecode.INVOKESTATIC;
 import gov.nasa.jpf.symbc.concolic.PCAnalyzer;
@@ -68,6 +69,7 @@ import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
 import gov.nasa.jpf.symbc.numeric.IntegerExpression;
 import gov.nasa.jpf.symbc.numeric.MinMax;
+import gov.nasa.jpf.symbc.numeric.NullIndicator;
 import gov.nasa.jpf.symbc.numeric.PCChoiceGenerator;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
 import gov.nasa.jpf.symbc.numeric.RealConstant;
@@ -104,7 +106,9 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
      * Locals to preserve the value that was held by JPF prior to changing it in order to turn off state matching during
      * symbolic execution no longer necessary because we run spf stateless
      */
-
+	
+	public static int id = 0;
+	
     private String currentMethodName = "";
     
     private Map<String, SymbolicMethodSummary> methodsSymbolicSummaries;
@@ -122,6 +126,8 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
         symbolicMethodSimpleName = sMethodSimpleName;
         transformedSymFields = new ArrayList<>();
         externalStaticFields = new ArrayList<>();
+        
+        id++;
     }
 
     @Override
@@ -189,8 +195,15 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 			String methodName = mi.getName();
 			ClassInfo ci = mi.getClassInfo();
 			String longName = mi.getLongName();
-
+			
+			/*if (methodName.equals(symbolicMethodSimpleName)) {
+				System.out.println("Executing: " + instructionToExecute.getPosition() + "\t" + instructionToExecute);
+			}*/
+			
 			if (ci != null) {
+				
+				
+				
 				// Get the latest choice generator of type PCChoiceGenerator or HeapChoiceGenerator
 				PCChoiceGenerator[] pcChoiceGens = vm.getChoiceGeneratorsOfType(PCChoiceGenerator.class);
 				HeapChoiceGenerator[] heapChoiceGens = vm.getChoiceGeneratorsOfType(HeapChoiceGenerator.class);
@@ -199,6 +212,11 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 				
 				PCChoiceGenerator pcChoiceGen = vm.getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
 				HeapChoiceGenerator heapChoiceGen = vm.getLastChoiceGeneratorOfType(HeapChoiceGenerator.class);
+				
+				if(mi.getLongName().equals("parse(String)")) {
+					StackFrame frame = currentThread.getModifiableTopFrame();
+					System.out.println("breakpoint");
+				}
 				
 				int pcChoiceNo = 0, pcOffset = 0;
 				
@@ -218,6 +236,7 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 					
 
 					// System.out.println("GET\t" + insn);
+					// TODO we need to remove the method name check
 					if (methodName.equals(symbolicMethodSimpleName)) {
 						FieldInfo fieldInfo = ((JVMStaticFieldInstruction) insn).getFieldInfo();
 
@@ -244,7 +263,7 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 								Expression fieldSymVar = Helper.initializeStaticField(fieldInfo, fieldClassInfo,
 										currentThread, "");
 
-								externalStaticField = new SymField(fieldSymVar, fieldOwner, fieldInfo,
+								externalStaticField = new SymField(fieldSymVar, 0, fieldOwner, fieldInfo,
 										pcOffset, pcChoiceNo, heapPC,
 										currentThread);
 								externalStaticFields.add(externalStaticField);
@@ -269,7 +288,7 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 
 				// Identify transformed fields
 				if (insn instanceof PUTFIELD || insn instanceof PUTSTATIC) {
-					if (methodName.equals(symbolicMethodSimpleName)) {
+					//if (methodName.equals(symbolicMethodSimpleName)) {
 
 						FieldInfo fieldInfo = ((WriteInstruction) insn).getFieldInfo();
 
@@ -306,8 +325,10 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 											+ "\n\towner: " +  fieldOwner
 											+ "\n\tOwner ref: " + objRef);*/
 
-							if (attr instanceof SymbolicInteger || attr instanceof SymbolicReal
-									|| attr instanceof StringSymbolic) {
+							if (attr instanceof SymbolicInteger 
+									|| attr instanceof SymbolicReal
+									|| attr instanceof StringSymbolic
+									|| attr instanceof ArrayExpression) {
 
 								// Record: The symbolic var, owning object, field info
 
@@ -325,7 +346,7 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 								if (!found) { 
 									TransformedSymField changedField = 
 											new TransformedSymField((Expression) attr,
-													fieldOwner, fieldInfo, 
+													objRef, fieldOwner, fieldInfo, 
 													pcOffset, pcChoiceNo, heapPC,
 													currentThread);
 									
@@ -335,7 +356,7 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 							} 
 						}
 
-					}
+					//}
 
 				}
 				
@@ -438,19 +459,23 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
             Config conf = vm.getConfig();
             
             
-            /*MethodInfo mei = insn.getMethodInfo();
+            MethodInfo mei = insn.getMethodInfo();
             String meName = mei.getName();
             
-            if(meName.equals(symbolicMethodSimpleName)) {
-            	System.out.println(ti.getExecutedInstructions() + "\t" + insn + "\t" + ti.isFirstStepInsn());
-            }*/
+            //if(meName.equals(symbolicMethodSimpleName)) {
+            	//System.out.println(ti.getExecutedInstructions() + "\t" + insn + "\t" + ti.isFirstStepInsn());
+            	//System.out.println("Executed: " + executedInstruction.getPosition() + "\t" + executedInstruction);
+            //}
             
             //System.out.println();
 
             if (insn instanceof JVMInvokeInstruction) {
                 JVMInvokeInstruction md = (JVMInvokeInstruction) insn;
                 String methodName = md.getInvokedMethodName();
+                //System.out.println("method: " + methodName);
                 int numberOfArgs = md.getArgumentValues(ti).length;
+
+                
 
                 MethodInfo mi = md.getInvokedMethod();
                 ClassInfo ci = mi.getClassInfo();
@@ -474,40 +499,41 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                     //MethodSummary methodSummary = new MethodSummary();
 
                     //methodSummary.setMethodName(className + "." + shortName);
-                    Object[] argValues = md.getArgumentValues(ti);
+                    /*Object[] argValues = md.getArgumentValues(ti);
                     String argValuesStr = "";
                     for (int i = 0; i < argValues.length; i++) {
                         argValuesStr = argValuesStr + argValues[i];
                         if ((i + 1) < argValues.length)
                             argValuesStr = argValuesStr + ",";
-                    }
+                    }*/
                     //methodSummary.setArgValues(argValuesStr);
-                    byte[] argTypes = mi.getArgumentTypes();
+                    /*byte[] argTypes = mi.getArgumentTypes();
                     String argTypesStr = "";
                     for (int i = 0; i < argTypes.length; i++) {
                         argTypesStr = argTypesStr + argTypes[i];
                         if ((i + 1) < argTypes.length)
                             argTypesStr = argTypesStr + ",";
-                    }
+                    }*/
                     //methodSummary.setArgTypes(argTypesStr);
 
                     // get the symbolic values (changed from constructing them here)
-                    String symValuesStr = "";
+                    /*String symValuesStr = "";
                     String symVarNameStr = "";
 
                     LocalVarInfo[] argsInfo = mi.getArgumentLocalVars();
 
                     if (argsInfo == null)
                         throw new RuntimeException("ERROR: you need to turn debug option on");
-
-                    int sfIndex = 1; // do not consider implicit param "this"
-                    int namesIndex = 1;
+                        */
+                	
+                    //int sfIndex = 1; // do not consider implicit param "this"
+                    /*int namesIndex = 1;
                     if (md instanceof INVOKESTATIC) {
                         sfIndex = 0; // no "this" for static
                         namesIndex = 0;
-                    }
+                    }*/
 
-                    for (int i = 0; i < numberOfArgs; i++) {
+                    /*for (int i = 0; i < numberOfArgs; i++) {
                         Expression expLocal = (Expression) sf.getLocalAttr(sfIndex);
                         if (expLocal != null) // symbolic
                             symVarNameStr = expLocal.toString();
@@ -520,12 +546,12 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                         if (argTypes[i] == Types.T_LONG || argTypes[i] == Types.T_DOUBLE)
                             sfIndex++;
 
-                    }
+                    }*/
 
                     // get rid of last ","
-                    if (symValuesStr.endsWith(",")) {
+                    /*if (symValuesStr.endsWith(",")) {
                         symValuesStr = symValuesStr.substring(0, symValuesStr.length() - 1);
-                    }
+                    }*/
                     //methodSummary.setSymValues(symValuesStr);
 
                     currentMethodName = longName;
@@ -587,7 +613,11 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 
                             Expression result = null;
                             
-                            
+                            PathCondition transformations = new PathCondition();
+                            Map<String, String> obj2Name = new HashMap<>();
+                            Map<String, String> fieldName2ObjName = new HashMap<>();
+                            Map<String, List<Expression>> objName2Fields = new HashMap<>();
+                            TransformedSymField.localsCounter = 0;
                             
                             if (insn instanceof IRETURN) {
                                 IRETURN ireturn = (IRETURN) insn;
@@ -647,7 +677,21 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                                 } else {// concrete
                                     ElementInfo val = (ElementInfo) areturn.getReturnValue(ti);
                                     
-                                    if(val != null && val.isStringObject()) {
+                                    
+                                    	if(val != null &&val.isStringObject()) { // concrete string
+                                    		result = new StringConstant((String) val.asString());
+                                    	} else { // concrete non-string (might be null)
+                                    		int objRef = areturn.getReturnValue();
+                                        	TransformedSymField.getConcreteObjectFieldsTransformations(currentThread, "RET", objRef, transformations, 
+                                        			obj2Name, fieldName2ObjName, objName2Fields);
+
+                                    	}
+                                     
+                                    
+                                    
+                                    
+                                    
+                                    /*if(val != null && val.isStringObject()) {
                                     	result = new StringConstant((String) val.asString());
                                     } else {
                                     	returnString = "Return Value: " + String.valueOf(val);
@@ -655,7 +699,7 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                                         String tmp = String.valueOf(val);
                                         //tmp = tmp.substring(tmp.lastIndexOf('.') + 1); // TODO might need to check this later
                                         result = new SymbolicInteger(tmp);
-                                    }
+                                    }*/
      
                                 }
                             } else // other types of return
@@ -664,17 +708,22 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             
                             
                             
-                            ParsableConstraint returnTransformation = null;
+                            //ParsableConstraint returnTransformation = null;
                             String returnVarName = "RET"; // TODO append hash of method name to ensure that it doesn't collide with an existing var
                             Expression retOutVar;
                             
                             if(insn instanceof FRETURN || insn instanceof DRETURN) {
                             	retOutVar = new SymbolicReal(returnVarName, MinMax.getVarMinDouble(returnVarName), MinMax.getVarMaxDouble(returnVarName));
-                                returnTransformation = new RealConstraint((RealExpression) retOutVar, Comparator.EQ, (RealExpression) result);
+                            	
+                            	transformations._addDet(Comparator.EQ, retOutVar, result);
+                            	
+                                //returnTransformation = new RealConstraint((RealExpression) retOutVar, Comparator.EQ, (RealExpression) result);
                             } else if(insn instanceof ARETURN && result instanceof StringExpression) {
-                            	retOutVar = new StringSymbolic("RET");
-                            	returnTransformation = new StringConstraint((StringExpression) retOutVar, StringComparator.EQUALS, (StringExpression) result);
-                            } else if (!(insn instanceof RETURN)) {
+                            	retOutVar = new StringSymbolic(returnVarName);
+                            	
+                            	transformations.spc._addDet(StringComparator.EQUALS, (StringExpression) retOutVar, (StringExpression) result); 
+                            	//returnTransformation = new StringConstraint((StringExpression) retOutVar, StringComparator.EQUALS, (StringExpression) result);
+                            } else if (insn instanceof IRETURN || insn instanceof LRETURN) {
                             	long min, max;
                             	
                             	if(insn instanceof LRETURN) {
@@ -686,11 +735,14 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             	}
                             	
                             	retOutVar = new SymbolicInteger(returnVarName, min, max);
-                                returnTransformation = new LinearIntegerConstraint((IntegerExpression) retOutVar, Comparator.EQ, (IntegerExpression) result);
-                            } else {
+                                
+                            	transformations._addDet(Comparator.EQ, retOutVar, result);
+                            	//returnTransformation = new LinearIntegerConstraint((IntegerExpression) retOutVar, Comparator.EQ, (IntegerExpression) result);
+                                
+                            } //else {
                             	// We add a trivially true constraint
-                            	returnTransformation = new LinearIntegerConstraint(new IntegerConstant(1), Comparator.EQ, new IntegerConstant(1));
-                            }
+                            	//returnTransformation = new LinearIntegerConstraint(new IntegerConstant(1), Comparator.EQ, new IntegerConstant(1));
+                            //}
                             
                             
                             /*Heap heap = vm.getHeap();
@@ -720,10 +772,12 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             
                             // Debugging .. 
                             
-    						PathCondition transformations = new PathCondition();
+    						//PathCondition transformations = new PathCondition();
     						
     						
-    						transformations.prependAllConjuncts(returnTransformation);
+    						//transformations.prependAllConjuncts(t);
+    						
+    						//transformations.prependAllConjuncts(returnTransformation);
     						
     						PCChoiceGenerator[] pcChoiceGens = vm.getChoiceGeneratorsOfType(PCChoiceGenerator.class);
     						HeapChoiceGenerator[] heapChoiceGens = vm.getChoiceGeneratorsOfType(HeapChoiceGenerator.class);
@@ -737,13 +791,15 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
     							if(isPresentInHeapGC && isPresentInPCGC) {
     								pathTransformedFields.add(transformedField);
     								
-    								Object transformationToAdd = transformedField.getTransformationConstraint();
+    								transformedField.getTransformationConstraint(transformations, obj2Name, fieldName2ObjName, objName2Fields);
     								
-    								if(transformationToAdd instanceof Constraint) {
+    								System.out.println(obj2Name);
+    								
+    								/*if(transformationToAdd instanceof Constraint) {
     									transformations.prependAllConjuncts((Constraint) transformationToAdd);
     								} else if(transformationToAdd instanceof StringConstraint) {
     									transformations.spc._addDet((StringConstraint) transformationToAdd);
-    								}
+    								}*/
     								
     								
     							}
@@ -757,6 +813,9 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             
                             SymbolicMethodSummary symbolicMethodSummary = methodsSymbolicSummaries.get(longName);
                             
+                            symbolicMethodSummary.fieldName2ObjName.putAll(fieldName2ObjName);
+                            symbolicMethodSummary.objName2Fields.putAll(objName2Fields);
+                            
                             if(!symbolicMethodSummary.containsPathSummary(pathSummary)) {
                             	symbolicMethodSummary.addPathSummary(pathSummary);
                             }
@@ -766,8 +825,10 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             System.out.println("Choice Gen HC: " + heapPC);
                             System.out.println("===================");
                             System.out.println("Trasformations: " + transformations);
+                            System.out.println("===================");
+                            System.out.println("Arrays transformations: " + pc.arrayExpressions);
                             System.out.println("\n");
-                            
+                           
 
                             
                         }
