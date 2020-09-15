@@ -46,7 +46,9 @@ import gov.nasa.jpf.vm.MethodInfo;
 import gov.nasa.jpf.vm.StackFrame;
 import gov.nasa.jpf.vm.SystemState;
 import gov.nasa.jpf.vm.ThreadInfo;
+import gov.nasa.jpf.vm.Types;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -285,6 +287,15 @@ public class BytecodeUtils {
             // }
             // }
             // }
+            
+            ArrayList<String> methodParamsTypes = null;
+            String methodSig = mi.getGenericSignature();
+            
+            if(methodSig != null && !methodSig.isEmpty()) {
+            	methodParamsTypes = getMethodParamsTypes(mi.getGenericSignature());
+            }
+            		
+            System.out.println("Method sig: " + mi.getGenericSignature());
 
             for (int j = 0; j < argSize; j++) { // j ranges over actual arguments
                 if (symClass || args.get(j).equalsIgnoreCase("SYM")) {
@@ -464,7 +475,29 @@ public class BytecodeUtils {
                         // the argument is of reference type and it is symbolic
                         if (lazy != null) {
                             if (lazy[0].equalsIgnoreCase("true")) {
-                                IntegerExpression sym_v = new SymbolicInteger(varName(name, VarType.REF));
+                     
+                            	
+                            	
+                            	//String[] argsTypesNames = Types.getArgumentTypeNames(mi.getGenericSignature());
+                            	
+                            	//System.out.println("arg type from sig: " +  argsTypesNames[j]);
+                            	//System.out.println("arg generic sig: " + argsInfo[localVarsIdx].getGenericSignature());
+                            	SymbolicInteger sym_v = new SymbolicInteger(varName(name, VarType.REF));
+                                
+                            	//System.out.println("Gen sig: " + argsInfo[localVarsIdx].getGenericSignature());
+                        
+                            	//System.out.println("Generic type of " + name + " : " + paramType);
+                            	
+                            	if(methodParamsTypes != null) {
+                            		String paramType = methodParamsTypes.get(j);
+                            		
+                            		if(paramType.contains("<")) {
+                                    	sym_v.genericTypeInvocation = paramType;
+                                    }
+                            	}
+                            	
+                                
+                                
                                 expressionMap.put(name, sym_v);
                                 sf.setOperandAttr(stackIdx, sym_v);
                                 outputString = outputString.concat(" " + sym_v + ",");
@@ -533,7 +566,7 @@ public class BytecodeUtils {
                             value = "false";
                     }
                     if (value.equalsIgnoreCase("true")) {
-                        Expression sym_v = Helper.initializeInstanceField(fields[i], ei, "input[" + objRef + "]", "");
+                        Expression sym_v = Helper.initializeInstanceField(fields[i], ei, "input[" + objRef + "]", "", null);
                         String name = fields[i].getName();
                         expressionMap.put(name, sym_v);
                         outputString = outputString.concat(" " + name + ",");
@@ -666,4 +699,71 @@ public class BytecodeUtils {
         //return name + "_" + (symVarCounter++) + suffix;
     }
 
+    // Input: (Lgenerics_exp/Test;Lgenerics_exp/Tuple<Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Double;>;ID)I
+    // Output
+    //	- Lgenerics_exp/Test;
+    //	- Lgenerics_exp/Tuple<Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Double;>;
+    //	- primitive
+    // 	- primitive
+    public static ArrayList<String> getMethodParamsTypes(String genericMethodSignature) {
+    	//int i = 0;
+    	
+    	int open = genericMethodSignature.indexOf('(');
+    	int close = genericMethodSignature.indexOf(')');
+    	
+    	//String remainingParamsStr = genericMethodSignature.substring(open + 1, close);
+    	
+    	ArrayList<String> params = new ArrayList<String>();
+    	
+    	int i = open + 1;
+    	while(i < close) {
+    		//System.out.println(genericMethodSignature.substring(i));
+    		
+    		switch (genericMethodSignature.charAt(i)) {
+    			case 'L':
+    				
+    				int semi_index = genericMethodSignature.indexOf(';', i);
+    				int left_bracket = genericMethodSignature.indexOf('<', i);
+
+    				if(left_bracket == -1 || semi_index < left_bracket) {
+    					String param = genericMethodSignature.substring(i, semi_index + 1);
+    					params.add(param);
+    					i = semi_index + 1;
+    				} else {
+    					int open_brackets_counter = 1;
+    					int j = left_bracket + 1;
+    					
+    					for(; open_brackets_counter > 0; j++) {
+    						if(genericMethodSignature.charAt(j) == '<') {
+    							open_brackets_counter++;
+    						} else if (genericMethodSignature.charAt(j) == '>') {
+    							open_brackets_counter--;
+    						}
+    					}
+    					
+    					assert genericMethodSignature.charAt(j + 1) == ';';
+    					
+    					String param = genericMethodSignature.substring(i, j + 1);
+
+    					params.add(param);
+    				
+    					i = j + 2;
+    				}
+    				break;
+    				
+    			// TODO add the primitive cases
+    			default:
+    				i++;
+    				params.add("primitive");
+    		}
+    		
+    		//System.out.println("Added: " + params.get(params.size() - 1));
+    		
+    		//remainingParamsStr = remainingParamsStr.substring(i, close);
+    		
+    				
+    	}
+    	
+    	return params;
+    }
 }

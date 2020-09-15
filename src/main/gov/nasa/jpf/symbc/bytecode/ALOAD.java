@@ -50,6 +50,8 @@ import gov.nasa.jpf.vm.SystemState;
 //import gov.nasa.jpf.symbc.uberlazy.TypeHierarchy;
 import gov.nasa.jpf.vm.ThreadInfo;
 
+import gov.nasa.jpf.vm.LocalVarInfo;
+
 // Corina: I need to add the latest fix from the v6 to treat properly "this"
 
 public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
@@ -97,7 +99,18 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 		}
 		
 		ClassInfo typeClassInfo = ClassLoaderInfo.getCurrentResolvedClassInfo(typeOfLocalVar);
-
+		if(attr instanceof SymbolicInteger) {
+			  String typeArg = ((SymbolicInteger) attr).typeArgument;
+			  if(typeArg != null && !typeArg.isEmpty()) {
+				  typeClassInfo = Helper.getTypeClassInfo(typeArg);
+			  }
+		  }
+		
+		// To cover generic arguments of type Symbolic String (because they actually have the type Object)
+		  if(attr instanceof StringSymbolic) {
+			  typeClassInfo = Helper.getTypeClassInfo("java.lang.String");
+		  }
+		
 		int currentChoice;
 		ChoiceGenerator<?> thisHeapCG;
 		
@@ -204,6 +217,15 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 				  strResult = node.getStringSymbolic();
 				  strResult.isLazyInitialized = true;
 			} else {
+				/*LocalVarInfo localVarInfo = getLocalVarInfo();
+				
+				  System.out.println("Generic?");
+				  String genericSig = localVarInfo.getGenericSignature();
+				  System.out.println(genericSig);
+				  System.out.println("Sig: " + localVarInfo.getSignature());
+				  System.out.println("Param type");
+				  System.out.println(typeOfLocalVar);*/
+				
 				  HeapNode newNode = Helper.addNewHeapNode(typeClassInfo, th, attr, pcHeap,
 							symInputHeap, numSymRefs, prevSymRefs, shared);
 				  
@@ -213,6 +235,8 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 					  // We might need to get the symbol created in the Helper method
 					  refResult = newNode.getSymbolic();
 					  refResult.isLazyInitialized = true;
+					  
+					  
 					  
 					  PCChoiceGenerator choiceGen = th.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
 					  

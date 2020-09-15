@@ -20,6 +20,11 @@ package gov.nasa.jpf.symbc.heap;
 
 
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+
 import gov.nasa.jpf.symbc.arrays.ArrayExpression;
 import gov.nasa.jpf.symbc.arrays.ArrayHeapNode;
 import gov.nasa.jpf.symbc.arrays.HelperResult;
@@ -54,7 +59,7 @@ public class Helper {
 	//public static SymbolicInteger SymbolicNull = new SymbolicInteger("SymbolicNull"); // hack for handling static fields; may no longer need it
 
 	public static Expression initializeInstanceField(FieldInfo field, ElementInfo eiRef,
-			String refChain, String suffix){
+			String refChain, String suffix, Map<String, String> typeParamsArgsMapping){
 		Expression sym_v = null;
 		String name ="";
 
@@ -65,11 +70,70 @@ public class Helper {
 		} else if (field instanceof FloatFieldInfo || field instanceof DoubleFieldInfo) {
 			sym_v = new SymbolicReal(fullName);
 		} else if (field instanceof ReferenceFieldInfo){
-			System.out.println("Initializing field of type: " + field.getType());
-			if (field.getType().equals("java.lang.String"))
+			// Check if field is of type parameter
+			// How to check: if field generic signature is not empty and mappings is not null
+			//	foreach key in the type-arg mapping, check if field.genSig.containts("T<key>;");
+			//	- Yes: replace each occurrence of the key in the signature. Store the result in sym_v.typeArgument.
+			//		   Inputs:
+			//				- Mapping: {T : Ljava/lang/String;, ... }
+			//				- field.genSig: TT; OR Lgenerics_exp/Tuple<TT;TT;TGEN;>;
+			//		   Outputs
+			//				- sym_v.typeArgument: Ljava/lang/Integer; 
+			//									OR Lgenerics_exp/Tuple<Ljava/lang/String;Ljava/lang/String;Ljava/lang/Double;>;
+			
+			
+			String typeArgument = null;
+			
+			
+			if(field.getGenericSignature() != null && !field.getGenericSignature().isEmpty() 
+			   && typeParamsArgsMapping != null) {
+				
+				typeArgument = field.getGenericSignature();
+				
+				for(Entry<String, String> typeParamArg : typeParamsArgsMapping.entrySet()) {
+					String typeParam = typeParamArg.getKey();
+					String typeArg = typeParamArg.getValue();
+
+					typeArgument = typeArgument.replaceAll("T" + typeParam + ";", typeArg);
+				}
+			}
+			
+			// Check if field uses generic type:
+			// How to check: if typeArgument != null and it contains '<'
+			//  - Yes: store field.getTypeClassInfo().getGenericSignature() in sym_v.genericType 
+			//		   and sym_v.typeArgument in sym_v.genericTypeInvocation
+			//		   Inputs
+			//				- field.genSig: Lgenerics_exp/Tuple<TT;TT;TGEN;>;
+			//				- sym_v.typeArgument: Lgenerics_exp/Tuple<Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Double;>;
+			//		   Outputs:
+			//				- sym_v.genericTypeDefinition: field.getTypeClassInfo().getGenericSignature()
+			//				- sym_v.genericTypeInvocation: sym_v.typeArgument
+			
+			
+			String genericTypeDefinition = null;
+			String genericTypeInvocation = null;
+			
+			if(typeArgument != null && typeArgument.contains("<")) {
+				genericTypeDefinition = field.getTypeClassInfo().getGenericSignature();
+				genericTypeInvocation = typeArgument;
+			}
+			
+			// TODO check if generic and String
+			/*System.out.println("Initializing field of type: " + field.getType());
+			System.out.println("Generic?");
+			String genericSig = field.getGenericSignature();
+			System.out.println(genericSig);*/
+			
+			if (field.getType().equals("java.lang.String") || 
+					(typeArgument != null && typeArgument.equals("Ljava/lang/String;")))
 				sym_v = new StringSymbolic(fullName);
-			else
+			else {
 				sym_v = new SymbolicInteger(fullName);
+				((SymbolicInteger) sym_v).genericTypeDefinition = genericTypeDefinition;
+				((SymbolicInteger) sym_v).genericTypeInvocation = genericTypeInvocation;
+				((SymbolicInteger) sym_v).typeArgument = typeArgument;
+			}
+
 		} else if (field instanceof BooleanFieldInfo) {
 				//	treat boolean as an integer with range [0,1]
 				sym_v = new SymbolicInteger(fullName, 0, 1);
@@ -79,9 +143,9 @@ public class Helper {
 	}
 
 	public static void initializeInstanceFields(FieldInfo[] fields, ElementInfo eiRef,
-			String refChain){
+			String refChain, Map<String, String> typeParamsArgsMapping){
 		for (int i=0; i<fields.length;i++)
-			initializeInstanceField(fields[i], eiRef, refChain, "");
+			initializeInstanceField(fields[i], eiRef, refChain, "", typeParamsArgsMapping);
 	}
 
 	public static Expression initializeStaticField(FieldInfo staticField, ClassInfo ci,
@@ -130,6 +194,80 @@ public class Helper {
 	  public static HeapNode addNewHeapNode(ClassInfo typeClassInfo, ThreadInfo ti, Object attr,
 			  PathCondition pcHeap, SymbolicInputHeap symInputHeap,
 			  int numSymRefs, HeapNode[] prevSymRefs, boolean setShared) {
+		  
+		  String className = typeClassInfo.getName();
+		  
+		  
+		  // Check if object is of a generic type
+		  //	- Yes: Parse the generic type definition and generic type invocation to obtain the object's type, 
+		  //		   and the type parameters and arguments.
+		  //		   Instantiate the object using the obtained type.
+		  //		   Construct type parameters and arguments mapping, and pass them to the objects fields.
+		  //	Inputs: 
+		  //			- attr.genericTypeInvocation: Lgenerics_exp/Tuple<Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Double;>;
+		  //			- attr.genericTypeDefinition or typeClassInfo.genSig: <T:Ljava/lang/Object;S:Ljava/lang/Object;GEN:Ljava/lang/Object;>Ljava/lang/Object;
+		  //	Outputs:
+		  //			- generics_exp.Tuple
+		  //
+		  //			- (T: Ljava/lang/String;)		
+		  //			- (S: Ljava/lang/Integer;)		
+		  //			- (GEN: Ljava/lang/Double;)		
+		  //	
+		  //	- No: check if attr.typeArgument is not null.
+		  //			- Yes: process typeArgument to obtain the type, and use it to initialize the object. 
+		  //			
+		  //			Inputs: Ljava/lang/String;
+		  //			Output: java.lang.String
+		  //
+		  
+		  SymbolicInteger symVar = (SymbolicInteger) attr;
+		  
+		  String objectType = null;
+		  Map<String, String> typeParamsArgsMapping = new HashMap<String, String>();
+		  
+		  
+		  System.out.println("Handling: " + symVar);
+		  System.out.println("genericTypeInvocation: " + symVar.genericTypeInvocation);
+		  System.out.println("genericTypeDefinition: " + symVar.genericTypeDefinition);
+		  System.out.println("getGenericSignature: " + typeClassInfo.getGenericSignature());
+		  System.out.println("typeArgument: " + symVar.typeArgument);
+		  
+		  if(symVar.genericTypeInvocation != null && !symVar.genericTypeInvocation.isEmpty()) {
+			  String genericTypeInvocation = symVar.genericTypeInvocation;
+			  String genericTypeDef = symVar.genericTypeDefinition != null && !symVar.genericTypeDefinition.isEmpty()? 
+					  symVar.genericTypeDefinition : typeClassInfo.getGenericSignature();
+			  
+			  objectType = genericTypeInvocation.replaceFirst("<.*", "").replaceFirst("^L", "").replaceAll("/", ".");
+			  
+			  ArrayList<String> typeArgs = getGenericTypeInvocationArguments(symVar.genericTypeInvocation);
+			  ArrayList<String> typeParams = getGenericTypeParameters(genericTypeDef);
+			  
+			  
+			  for(int i = 0; i < typeParams.size(); i++) {
+				  typeParamsArgsMapping.put(typeParams.get(i), typeArgs.get(i));
+			  }
+			  
+		  } else if(symVar.typeArgument != null && !symVar.typeArgument.isEmpty()) {
+			  objectType = symVar.typeArgument.replaceFirst("^L", "").replaceAll("/", ".").replaceAll(";", "");
+		  }
+		  
+		  if(objectType != null) {
+			  System.out.println("Instantiating: " + symVar + "\tof type: " + objectType);
+			  
+			  //ClassLoaderInfo classLoaderInfo = ti.getSystemClassLoaderInfo();
+			  ClassLoaderInfo classLoaderInfo = ClassLoaderInfo.getCurrentClassLoader();
+			  typeClassInfo = classLoaderInfo.getResolvedClassInfo(objectType);
+		  }
+		  
+		  /*System.out.println("Symbol name: " + attr);
+		  System.out.println("typeClassInfo.name: " + typeClassInfo.getName());
+		  System.out.println("typeClassInfo.genSig: " + typeClassInfo.getGenericSignature());
+		  if(((SymbolicInteger) attr).genericTypeInvocation != null) {
+			  
+			  System.out.println("genericTypeInvocation: " + ((SymbolicInteger) attr).genericTypeInvocation);
+		  }*/
+		  
+		  
 		  if(typeClassInfo.isAbstract()) {
 			  System.out.println("Creating heap node for abstract field!");
 			  
@@ -144,6 +282,11 @@ public class Helper {
 		  ti.getHeap().registerPinDown(daIndex);
 		  String refChain = ((SymbolicInteger) attr).getName(); // + "[" + daIndex + "]"; // do we really need to add daIndex here?
 		  SymbolicInteger newSymRef = new SymbolicInteger( refChain);
+		  
+		  newSymRef.genericTypeDefinition = ((SymbolicInteger) attr).genericTypeDefinition;
+		  newSymRef.genericTypeInvocation = ((SymbolicInteger) attr).genericTypeInvocation;
+		  newSymRef.typeArgument = ((SymbolicInteger) attr).typeArgument;
+		  
 		  ElementInfo eiRef =  ti.getModifiableElementInfo(daIndex);//ti.getElementInfo(daIndex); // TODO to review!
 		  if(setShared) {
 			  eiRef.setShared(ti,true);//??
@@ -159,7 +302,7 @@ public class Helper {
 			  fields[fieldIndex] = eiRef.getFieldInfo(fieldIndex);
 		  }
 
-		  Helper.initializeInstanceFields(fields, eiRef,refChain);
+		  Helper.initializeInstanceFields(fields, eiRef,refChain, typeParamsArgsMapping);
 
 		  //neha: this change allows all the static fields in the class hierarchy
 		  // of the object to be initialized as symbolic and not just its immediate
@@ -178,9 +321,13 @@ public class Helper {
               if (typeClass.charAt(1) != 'L') {
                   //arrayAttr = new ArrayExpression(eiRef.toString());
             	  arrayAttr = new ArrayExpression(refChain);
+            	  
+            	  System.out.println("Array type: " + typeClass);
+            	  System.out.println("Array: " + arrayAttr);
               } else {
                   //arrayAttr = new ArrayExpression(eiRef.toString(), typeClass.substring(2, typeClass.length() -1));
             	  arrayAttr = new ArrayExpression(refChain, typeClass.substring(2, typeClass.length() -1));
+
               }
               //ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class).getCurrentPC().arrayExpressions.put(eiRef.toString(), arrayAttr);
               PCChoiceGenerator choiceGen = ti.getVM().getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
@@ -206,7 +353,8 @@ public class Helper {
 			  int numSymRefs, HeapNode[] prevSymRefs, boolean setShared, IntegerExpression indexAttr, int arrayRef) {
 		  int daIndex = ti.getHeap().newObject(typeClassInfo, ti).getObjectRef();
 		  ti.getHeap().registerPinDown(daIndex);
-		  String refChain = ((ArrayExpression) attr).getName(); // + "[" + daIndex + "]"; // do we really need to add daIndex here?
+		  //String refChain = ((ArrayExpression) attr).getName(); // + "[" + daIndex + "]"; // do we really need to add daIndex here?
+		  String refChain = ((ArrayExpression) attr).getName() + "_atIndex_" + indexAttr;
 		  SymbolicInteger newSymRef = new SymbolicInteger(refChain);
 		  ElementInfo eiRef =  ti.getModifiableElementInfo(daIndex);//ti.getElementInfo(daIndex); // TODO to review!
 		  if(setShared) {
@@ -223,7 +371,7 @@ public class Helper {
 			  fields[fieldIndex] = eiRef.getFieldInfo(fieldIndex);
 		  }
 
-		  Helper.initializeInstanceFields(fields, eiRef,refChain);
+		  Helper.initializeInstanceFields(fields, eiRef,refChain, null);
 
 		  //neha: this change allows all the static fields in the class hierarchy
 		  // of the object to be initialized as symbolic and not just its immediate
@@ -249,10 +397,12 @@ public class Helper {
 
 		  // create new HeapNode based on above info
 		  // update associated symbolic input heap
+          newSymRef.isLazyInitialized = true;
 		  ArrayHeapNode n= new ArrayHeapNode(daIndex,typeClassInfo,newSymRef, indexAttr, arrayRef);
 		  symInputHeap._add(n);
-		  pcHeap._addDet(Comparator.NE, newSymRef, new IntegerConstant(-1));
-		  pcHeap._addDet(Comparator.EQ, newSymRef, new IntegerConstant(numSymRefs));
+		  //pcHeap._addDet(Comparator.NE, newSymRef, new IntegerConstant(-1));
+		  //pcHeap._addDet(Comparator.EQ, newSymRef, new IntegerConstant(numSymRefs));
+		  pcHeap._addDet(newSymRef, NullIndicator.NOTNULL);
 		  for (int i=0; i< numSymRefs; i++)
 			  pcHeap._addDet(Comparator.NE, n.getSymbolic(), prevSymRefs[i].getSymbolic());
 		  HelperResult result = new HelperResult(n, daIndex);
@@ -285,4 +435,114 @@ public class Helper {
 		  
 		  return node;
 	  }
+
+	  
+	  /*
+	   * Input: Lgenerics_exp/Tuple<Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Double;>;
+	   * 
+	   * Output:
+	   * 	Ljava/lang/String;
+	   * 	Ljava/lang/Integer;
+	   * 	Ljava/lang/Double
+	   * 
+	   */
+	public static ArrayList<String> getGenericTypeInvocationArguments(String genericTypeInvocation) {
+		ArrayList<String> args = new ArrayList<String>();
+
+		int leftBracket = genericTypeInvocation.indexOf('<');
+
+		int i = leftBracket + 1;
+		while (i < genericTypeInvocation.length()) {
+			assert genericTypeInvocation.charAt(i) == 'L';
+
+			int semiIndex = genericTypeInvocation.indexOf(';', i);
+			leftBracket = genericTypeInvocation.indexOf('<', i);
+
+			if (leftBracket == -1 || semiIndex < leftBracket) {
+				String arg = genericTypeInvocation.substring(i, semiIndex + 1);
+				args.add(arg);
+				i = semiIndex + 1;
+			} else {
+				int openBracketsCounter = 1;
+				int j = leftBracket + 1;
+
+				for (; openBracketsCounter > 0; j++) {
+					if (genericTypeInvocation.charAt(j) == '<') {
+						openBracketsCounter++;
+					} else if (genericTypeInvocation.charAt(j) == '>') {
+						openBracketsCounter--;
+					}
+				}
+
+				assert genericTypeInvocation.charAt(j + 1) == ';';
+
+				String arg = genericTypeInvocation.substring(i, j + 1);
+
+				args.add(arg);
+
+				i = j + 2;
+			}
+		}
+
+		return args;
+	}
+	  
+	  /*
+	   * Input: <T:Ljava/lang/Object;S:Ljava/lang/Object;GEN:Ljava/lang/Object;>Ljava/lang/Object;
+	   * 
+	   * Output:
+	   * 	T
+	   * 	S
+	   * 	GEN
+	   * 
+	   */
+	  public static ArrayList<String> getGenericTypeParameters(String genericType) {
+		  assert genericType.charAt(0) == '<';
+		  
+		  ArrayList<String> params = new ArrayList<String>();
+		  
+		  //int openBrackets = 1;
+		  int i = 1;
+		  
+		  System.out.println("genType: " + genericType);
+		  while(genericType.charAt(i) != '>') {
+			  int colonIndex = genericType.indexOf(':', i);
+			  
+			  String param = genericType.substring(i, colonIndex);
+			  params.add(param);
+			  
+			  int semiIndex = genericType.indexOf(';', i);
+			  int leftBracket = genericType.indexOf('<', i);
+			  
+			  if(leftBracket == -1 || semiIndex < leftBracket) {
+				  i = semiIndex + 1;
+			  } else {
+				  int openBrackets = 1;
+				  int j = leftBracket + 1;
+				  
+				  for(; openBrackets > 0; j++) {
+					  if(genericType.charAt(j) == '<') {
+						  openBrackets++;
+					  } else if(genericType.charAt(j) == '>') {
+						  openBrackets--;
+					  }
+				  }
+				  
+				  i = j + 2;
+			  }
+		  }
+		  
+		  return params;
+	  }
+
+	  
+	  public static ClassInfo getTypeClassInfo(String typeSig) {
+		  String normalType = typeSig.replaceFirst("<.*", "").replaceFirst("^L", "").replaceAll("/", ".").replaceAll(";", "");
+		  
+		  ClassLoaderInfo classLoaderInfo = ClassLoaderInfo.getCurrentClassLoader();
+		  ClassInfo typeClassInfo = classLoaderInfo.getResolvedClassInfo(normalType);
+		  
+		  return typeClassInfo;
+	  }
+
 }

@@ -53,6 +53,11 @@ public class SymbolicInteger extends LinearIntegerExpression
 
 	public static String SYM_INT_SUFFIX = "_SYMINT";
 	private String name;
+	
+	public String genericTypeDefinition;
+	public String genericTypeInvocation;
+	
+	public String typeArgument;
 
 	public SymbolicInteger () {
 		super();
@@ -188,4 +193,7 @@ public class SymbolicInteger extends LinearIntegerExpression
 			return getClass().getCanonicalName().compareTo(expr.getClass().getCanonicalName());
 		}
 	}
+
+
+	
 }

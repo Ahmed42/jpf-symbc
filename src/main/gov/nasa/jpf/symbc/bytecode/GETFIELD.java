@@ -131,7 +131,18 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 	  ChoiceGenerator<?> thisHeapCG;
 	  
 	  ClassInfo typeClassInfo = fi.getTypeClassInfo(); // use this instead of fullType
-
+	  
+	  if(attr instanceof SymbolicInteger) {
+		  String typeArg = ((SymbolicInteger) attr).typeArgument;
+		  if(typeArg != null && !typeArg.isEmpty()) {
+			  typeClassInfo = Helper.getTypeClassInfo(typeArg);
+		  }
+	  }
+	  
+	  // To cover generic arguments of type Symbolic String (because they actually have the type Object)
+	  if(attr instanceof StringSymbolic) {
+		  typeClassInfo = Helper.getTypeClassInfo("java.lang.String");
+	  }
 	 
 	  if(!ti.isFirstStepInsn()){
           prevSymRefs = null;
@@ -194,6 +205,8 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 	  assert pcHeap != null;
 	  assert symInputHeap != null;
 	  
+	 
+	  
 	  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo);
 	  numSymRefs = prevSymRefs.length;
 	  
@@ -249,6 +262,8 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 			  strResult = node.getStringSymbolic();
 			  strResult.isLazyInitialized = true;
 		  }  else {
+			  
+			  
 			  HeapNode newNode = Helper.addNewHeapNode(typeClassInfo, ti, attr, pcHeap,
 				  		symInputHeap, numSymRefs, prevSymRefs, ei.isShared());
 			  
