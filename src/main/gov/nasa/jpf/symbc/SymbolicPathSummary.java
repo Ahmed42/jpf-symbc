@@ -60,7 +60,7 @@ public class SymbolicPathSummary {
 	 *  Add identity constraints to unchanged fields.
 	 */
 	public void completeTransformations(Collection<TransformedSymField> allFields) {
-		List<Constraint> identityConstraints = new ArrayList<>();
+		List<ParsableConstraint> identityConstraints = new ArrayList<>();
 		
 		
 		for(TransformedSymField symField : allFields) {
@@ -74,7 +74,7 @@ public class SymbolicPathSummary {
 		}
 		
 
-		for(Constraint constraint : identityConstraints) {
+		for(ParsableConstraint constraint : identityConstraints) {
 			transformations.appendAllConjuncts(constraint.makeCopy());
 		}
 		
