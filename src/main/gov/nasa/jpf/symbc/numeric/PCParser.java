@@ -1280,6 +1280,15 @@ getExpression(stoex.value)), newae));
 	    			dpExpression = getExpression((IntegerExpression) expression);
 	    		} else if(expression instanceof RealExpression) {
 	    			dpExpression = getExpression((RealExpression) expression);
+	    		} else if(expression instanceof SelectExpression) {
+	    			SelectExpression selectExpr = (SelectExpression) expression;
+	    			
+	    			ArrayExpression arrrayExpr = selectExpr.arrayExpression;
+	    			
+	    			Object dpArrayExpr = pb.makeArrayVar(arrrayExpr.getName());
+	    			Object dpIndexExpr = getExpression(selectExpr.indexExpression);
+	    			
+	    			dpExpression = pb.select(dpArrayExpr, dpIndexExpr);
 	    		}
 	    		
 	    		if(nullConstraint.getNullIndicator() == NullIndicator.NULL) {
