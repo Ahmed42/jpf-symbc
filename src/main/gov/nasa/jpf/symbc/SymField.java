@@ -14,8 +14,8 @@ public class SymField {
 	private Expression symVar; // No other common ancestor to terminal symbolic values (consts and vars) exists
 	private ElementInfo fieldOwner;
 	protected FieldInfo fieldInfo;
-	private ThreadInfo currentThread;
-	private int owningObjRef;
+	protected ThreadInfo currentThread;
+	protected int owningObjRef;
 	
 	/*private PCChoiceGenerator pcChoiceGen;
 	private int pcChoiceNo;
@@ -112,16 +112,17 @@ public class SymField {
 				value = owner.getDoubleField(fieldInfo);
 			} else if(fieldInfo.isReference()) {
 				// TODO handle reference non-string data 
+				int ref = owner.getReferenceField(fieldInfo);
+				ElementInfo fieldElement = currentThread.getVM().getHeap().get(ref);
+				
+				// TODO Change to specific string types (String and StringBuffer)
 				if(fieldInfo.getType().contains("String")) {
-					int ref = owner.getReferenceField(fieldInfo);
-					//value = fieldOwner.getStringField(fieldInfo.getName());
-					ElementInfo stringFieldElement = currentThread.getVM().getHeap().get(ref);
 					
-					//System.out.println("Ref#" + ref + ", value: " + value);
-					
-					if(stringFieldElement != null) {
-						value = stringFieldElement.asString();
+					if(fieldElement != null) {
+						value = fieldElement.asString();
 					}
+				} else {
+					value = ref;
 				}
 				
 			}
