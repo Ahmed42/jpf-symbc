@@ -10,7 +10,7 @@ public class LogicalGroupingConstraint extends Constraint {
 	private Operator operator;
 	public boolean negated;
 	
-	public static enum Operator { AND, OR };
+	public static enum Operator { AND, OR, IMPLIES, EQUIV };
 	
 	
 	public LogicalGroupingConstraint() {
@@ -96,8 +96,12 @@ public class LogicalGroupingConstraint extends Constraint {
 		for(int i = 1; i<list.size(); i++) {
 			if(operator == Operator.AND) {
 				sb.append(" && ");
-			} else {
+			} else if(operator == Operator.OR) {
 				sb.append(" || ");
+			} else if(operator == Operator.IMPLIES) {
+				sb.append(" => ");
+			} else if(operator == Operator.EQUIV) {
+				sb.append(" <=> ");
 			}
 			
 			sb.append("\n");

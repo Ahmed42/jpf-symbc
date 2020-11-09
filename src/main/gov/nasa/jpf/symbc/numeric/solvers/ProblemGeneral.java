@@ -341,4 +341,12 @@ public abstract class ProblemGeneral{
 	public Object makeHashCode(Object strDPExpr) {
 		throw new RuntimeException("## Error : makeHashCode not supported");
 	}
+	
+	public Object implies(Object boolDPExpr1, Object boolDPExpr2) {
+		throw new RuntimeException("## Error : implies not supported");
+	}
+	
+	public Object equiv(Object boolDPExpr1, Object boolDPExpr2) {
+		throw new RuntimeException("## Error : equiv not supported");
+	}
 }

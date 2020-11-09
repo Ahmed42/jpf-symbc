@@ -1574,4 +1574,24 @@ public class ProblemZ3 extends ProblemGeneral {
             throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
 		} 
 	}
+    
+    @Override
+    public Object implies(Object boolDPExpr1, Object boolDPExpr2) {
+		try {
+			return ctx.mkImplies((BoolExpr)boolDPExpr1, (BoolExpr)boolDPExpr1);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
+	
+    @Override
+	public Object equiv(Object boolDPExpr1, Object boolDPExpr2) {
+    	try {
+    		return ctx.mkEq((BoolExpr)boolDPExpr1, (BoolExpr)boolDPExpr1);
+		} catch(Exception e) {
+			e.printStackTrace();
+            throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);
+		} 
+	}
 }

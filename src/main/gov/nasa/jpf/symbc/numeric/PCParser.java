@@ -1237,6 +1237,7 @@ getExpression(stoex.value)), newae));
 	    		LogicalGroupingConstraint logicalGroupedConstraint = ((LogicalGroupingConstraint) constraint);
 	    		List<ParsableConstraint> groupedConstraints = logicalGroupedConstraint.getList();
 	    		
+	    		
 	    		Object groupedDPConstraints = parseToDPConstraint(groupedConstraints.get(0), pb);
 	    		
 	    		for(int i = 1; i < groupedConstraints.size(); i++) {
@@ -1249,13 +1250,19 @@ getExpression(stoex.value)), newae));
 	    				if(pb.isFalse(groupedDPConstraints)) {
 	    					break;
 	    				}
-	    			} else { // OR operator case
+	    			} else if(logicalGroupedConstraint.getOperator() == LogicalGroupingConstraint.Operator.OR) { // OR operator case
 	    				
 	    				groupedDPConstraints = pb.or(groupedDPConstraints,  subDPConstraint);
 	    				
 	    				if(pb.isTrue(groupedDPConstraints)) {
 	    					break;
 	    				}
+	    			} else if(logicalGroupedConstraint.getOperator() == LogicalGroupingConstraint.Operator.IMPLIES) {
+	    				groupedDPConstraints = pb.implies(groupedDPConstraints, subDPConstraint);
+	    			} else if(logicalGroupedConstraint.getOperator() == LogicalGroupingConstraint.Operator.EQUIV) {
+	    				groupedDPConstraints = pb.equiv(groupedDPConstraints, subDPConstraint);
+	    			} else {
+	    				throw new RuntimeException("Parser: Invalid operator.");
 	    			}
 	    		}
 	    		
