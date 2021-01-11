@@ -198,7 +198,7 @@ public class TransformedSymField extends SymField {
 	 * @param fieldOrRetName	Name of the transformed field or 'RET' to denote the returned value.
 	 * @param objRef		Reference value of the object. Reference is assumed to be not null.
 	 * @param transformations	Conjunction of constraints describing the transformations of the object and its fields.
-	 * @param obj2Name		Maps local objects names, which fields transformation where already added, to the name initially chosen,
+	 * @param obj2Name		Maps local objects names, which fiefieldName2ObjNamelds transformation where already added, to the name initially chosen,
 	 * 						so as to avoid repeating transformations constraints.
 	 * @param fieldName2ObjName	Maps fields to the assigned local object. We use this in conjunction with obj2RefFields to construct the correspondence constraints.
 	 * @param obj2RefFields	Maps local objects, which fields transformation where already added, to their fields. 
@@ -232,46 +232,25 @@ public class TransformedSymField extends SymField {
 			return;
 		}
 		
-		String objSymName = obj2Name.get(objElement.toString());
-		
-		boolean transformationsExist = objSymName != null;
-		
-		if(!transformationsExist) {
-			//objSymName = fieldOrRetName + "_local";
-			objSymName = "loc_" + CustomSymbolicListener.id + "_" + localsCounter;
-			localsCounter++;
-			obj2Name.put(objElement.toString(), objSymName);
-		} 
+		String objSymName = fieldOrRetName.replace('.', '_') + "_local";
 		
 		SymbolicInteger symObj = new SymbolicInteger(objSymName);
 		
 		transformations._addDet(symFieldOrRet, NullIndicator.NOTNULL);
 		transformations._addDet(Comparator.EQ, symFieldOrRet, symObj);
-		
+				
 		fieldName2ObjName.put(fieldOrRetName, objSymName);
 		
-		// Transformations of the local object fields have been added before
-		if(transformationsExist) {
-			return;
+		String existingObjName = obj2Name.get(objElement.toString());
+		boolean transformationsExist = existingObjName != null;
+		
+		if(!transformationsExist) { // Check if element has been encountered before
+			// First time. Add to map
+			obj2Name.put(objElement.toString(), objSymName);
+		} else {
+			// Add aliasing expression
+			transformations._addDet(Comparator.EQ, new SymbolicInteger(existingObjName), symObj);
 		}
-		
-		//String objSymName = objElement.toString();
-		//String objSymName = fieldOrRetName + "_local";
-		
-		//if(fieldOrRetName != null) { // First transformation: RET = .. or obj.field = ...
-			//SymbolicInteger symFieldOrRet = new SymbolicInteger(fieldOrRetName);
-			//if(objElement == null) {
-				//transformations._addDet(symFieldOrRet, NullIndicator.NULL);
-			//} else {
-				
-				/*SymbolicInteger symObj = new SymbolicInteger(objSymName);
-				
-				transformations._addDet(symFieldOrRet, NullIndicator.NOTNULL);
-				transformations._addDet(Comparator.EQ, symFieldOrRet, symObj);*/
-			//}
-			
-		//}
-		
 		
 		
 		ClassInfo classInfo = objElement.getClassInfo();
@@ -282,8 +261,7 @@ public class TransformedSymField extends SymField {
 		List<Expression> objFields = new ArrayList<Expression>();
 		objName2Fields.put(objSymName, objFields);
 		
-		//obj2RefFields.put(symObj, objRefFields);
-		//obj2Fields.put(objSymName, objFields);
+
 		
 		for(FieldInfo fieldInfo : fieldsInfos) {
 			String fieldName = fieldInfo.getName();
