@@ -54,10 +54,10 @@ public class SymbolicInteger extends LinearIntegerExpression
 	public static String SYM_INT_SUFFIX = "_SYMINT";
 	private String name;
 	
-	public String genericTypeDefinition;
-	public String genericTypeInvocation;
+	public String genericTypeDefinition; // The generic type definition of the type of this variable, e.g., Tuple<T, S, U> 
+	public String genericTypeInvocation; // The parameterized type of this symbolic variable, e.g., Tuple<String, Integer, Double>
 	
-	public String typeArgument;
+	public String typeArgument; // The type of this variable after applying type arguments to its parent type e.g., String, Integer .. etc. It can also be a parameterized type.
 
 	public SymbolicInteger () {
 		super();

@@ -1588,7 +1588,7 @@ public class ProblemZ3 extends ProblemGeneral {
     @Override
 	public Object equiv(Object boolDPExpr1, Object boolDPExpr2) {
     	try {
-    		return ctx.mkEq((BoolExpr)boolDPExpr1, (BoolExpr)boolDPExpr1);
+    		return ctx.mkEq((BoolExpr)boolDPExpr1, (BoolExpr)boolDPExpr2);
 		} catch(Exception e) {
 			e.printStackTrace();
             throw new RuntimeException("## Error Z3 : Exception caught in Z3 JNI: " + e);

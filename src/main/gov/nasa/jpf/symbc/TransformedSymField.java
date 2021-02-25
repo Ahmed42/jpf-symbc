@@ -139,7 +139,7 @@ public class TransformedSymField extends SymField {
 				} 
 				// TODO might need to check for StringBuilder and maybe Regex as well
 				
-				assert(rightSideExpr != null);
+				//assert(rightSideExpr != null);
 				
 				transformations.spc._addDet(StringComparator.EQUALS, rightSideExpr, (StringExpression) symVarOutput);
 				//transformation = new StringConstraint((StringExpression) symVarOutput, StringComparator.EQUALS, rightSideExpr);

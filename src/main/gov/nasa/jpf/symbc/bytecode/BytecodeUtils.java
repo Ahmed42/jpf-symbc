@@ -741,13 +741,14 @@ public class BytecodeUtils {
     						}
     					}
     					
-    					assert genericMethodSignature.charAt(j + 1) == ';';
+    					assert genericMethodSignature.charAt(j) == ';';
+    					
     					
     					String param = genericMethodSignature.substring(i, j + 1);
 
     					params.add(param);
     				
-    					i = j + 2;
+    					i = j + 1;
     				}
     				break;
     				

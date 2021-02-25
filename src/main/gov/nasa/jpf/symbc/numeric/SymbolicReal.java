@@ -107,8 +107,9 @@ public class SymbolicReal extends RealExpression {
 			return (name != null) ? name : "REAL_" + hashCode();
 
 		} else {
-			return (name != null) ? name + "[" + solution + /* "<" + solution_inf + "," + solution_sup + ">" + */  "]" :
-				"REAL_" + hashCode() + "[" + solution + "]";
+			return (name != null) ? name : "REAL_" + hashCode();
+			//return (name != null) ? name + "[" + solution + /* "<" + solution_inf + "," + solution_sup + ">" + */  "]" :
+			//	"REAL_" + hashCode() + "[" + solution + "]";
 //			return (name != null) ? name + "[" + solution_inf + "," + solution_sup +  "]" :
 //				"REAL_" + hashCode() + "[" + + solution_inf + "," + solution_sup +  "]";
 		}

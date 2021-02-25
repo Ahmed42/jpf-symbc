@@ -226,11 +226,11 @@ public class Helper {
 		  Map<String, String> typeParamsArgsMapping = new HashMap<String, String>();
 		  
 		  
-		  System.out.println("Handling: " + symVar);
+		  /*System.out.println("Handling: " + symVar);
 		  System.out.println("genericTypeInvocation: " + symVar.genericTypeInvocation);
 		  System.out.println("genericTypeDefinition: " + symVar.genericTypeDefinition);
 		  System.out.println("getGenericSignature: " + typeClassInfo.getGenericSignature());
-		  System.out.println("typeArgument: " + symVar.typeArgument);
+		  System.out.println("typeArgument: " + symVar.typeArgument);*/
 		  
 		  if(symVar.genericTypeInvocation != null && !symVar.genericTypeInvocation.isEmpty()) {
 			  String genericTypeInvocation = symVar.genericTypeInvocation;
@@ -252,7 +252,7 @@ public class Helper {
 		  }
 		  
 		  if(objectType != null) {
-			  System.out.println("Instantiating: " + symVar + "\tof type: " + objectType);
+			  //System.out.println("Instantiating: " + symVar + "\tof type: " + objectType);
 			  
 			  //ClassLoaderInfo classLoaderInfo = ti.getSystemClassLoaderInfo();
 			  ClassLoaderInfo classLoaderInfo = ClassLoaderInfo.getCurrentClassLoader();
@@ -269,7 +269,7 @@ public class Helper {
 		  
 		  
 		  if(typeClassInfo.isAbstract()) {
-			  System.out.println("Creating heap node for abstract field!");
+			  //System.out.println("Creating heap node for abstract field!");
 			  
 			  if(typeClassInfo.getName().contains("java.util.Map")) {
 				  System.out.println("Creating heap node for Map field!");
@@ -322,8 +322,8 @@ public class Helper {
                   //arrayAttr = new ArrayExpression(eiRef.toString());
             	  arrayAttr = new ArrayExpression(refChain);
             	  
-            	  System.out.println("Array type: " + typeClass);
-            	  System.out.println("Array: " + arrayAttr);
+            	  //System.out.println("Array type: " + typeClass);
+            	  //System.out.println("Array: " + arrayAttr);
               } else {
                   //arrayAttr = new ArrayExpression(eiRef.toString(), typeClass.substring(2, typeClass.length() -1));
             	  arrayAttr = new ArrayExpression(refChain, typeClass.substring(2, typeClass.length() -1));
@@ -453,7 +453,7 @@ public class Helper {
 
 		int i = leftBracket + 1;
 		while (i < genericTypeInvocation.length()) {
-			assert genericTypeInvocation.charAt(i) == 'L';
+			//assert genericTypeInvocation.charAt(i) == 'L';
 
 			int semiIndex = genericTypeInvocation.indexOf(';', i);
 			leftBracket = genericTypeInvocation.indexOf('<', i);
@@ -474,13 +474,14 @@ public class Helper {
 					}
 				}
 
-				assert genericTypeInvocation.charAt(j + 1) == ';';
+				assert genericTypeInvocation.charAt(j) == ';';
+				
 
 				String arg = genericTypeInvocation.substring(i, j + 1);
 
 				args.add(arg);
 
-				i = j + 2;
+				i = j + 1;
 			}
 		}
 
@@ -504,7 +505,7 @@ public class Helper {
 		  //int openBrackets = 1;
 		  int i = 1;
 		  
-		  System.out.println("genType: " + genericType);
+		  //System.out.println("genType: " + genericType);
 		  while(genericType.charAt(i) != '>') {
 			  int colonIndex = genericType.indexOf(':', i);
 			  

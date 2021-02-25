@@ -155,7 +155,14 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 			// determine # of candidates for lazy initialization
 			  SymbolicInputHeap symInputHeap =
 				  ((HeapChoiceGenerator)prevHeapCG).getCurrentSymInputHeap();
-			  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo);
+			  
+			  System.out.println("GETFIELD: " + attr);
+			  if(attr instanceof SymbolicInteger) {
+				  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo, (SymbolicInteger) attr);
+			  } else {
+				  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo);
+			  }
+			  
 			  numSymRefs = prevSymRefs.length;
 		  }
 		  int increment = 2;
@@ -206,8 +213,14 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 	  assert symInputHeap != null;
 	  
 	 
+	  System.out.println("GETFIELD: " + attr);
 	  
-	  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo);
+	  
+	  if(attr instanceof SymbolicInteger) {
+		  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo, (SymbolicInteger) attr);
+	  } else {
+		  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo);
+	  }
 	  numSymRefs = prevSymRefs.length;
 	  
 	  int daIndex = 0; //index into JPF's dynamic area
@@ -244,14 +257,14 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 		  }
 		  
           daIndex = candidateNode.getIndex();
-          System.out.println("\tGETFIELD\tAlias option");
+          //System.out.println("\tGETFIELD\tAlias option");
 	  }
 	  else if (currentChoice == numSymRefs){ //null object
 		  //pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, new IntegerConstant(-1));
 		  pcHeap._addDet((Expression) attr, NullIndicator.NULL);
 		  daIndex = MJIEnv.NULL;//-1;
 		  //result = null;
-		  System.out.println("\tGETFIELD\tNull option");
+		  //System.out.println("\tGETFIELD\tNull option");
 	  }
 	  else if (currentChoice == (numSymRefs + 1) && !abstractClass) {
 		  // creates a new object with all fields symbolic and adds the object to SymbolicHeap
@@ -275,7 +288,7 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 			  }
 		  }
 		  
-		  System.out.println("\tGETFIELD\tNew object option");
+		  //System.out.println("\tGETFIELD\tNew object option");
 		  
 	  } else {
 		  System.err.println("subtyping not handled");

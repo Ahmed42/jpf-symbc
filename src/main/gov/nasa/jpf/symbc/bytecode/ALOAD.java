@@ -128,7 +128,12 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 				SymbolicInputHeap symInputHeap =
 					((HeapChoiceGenerator)prevHeapCG).getCurrentSymInputHeap();
 
-				prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo);
+				System.out.println("ALOAD: " + attr);
+				if(attr instanceof SymbolicInteger) {
+					  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo, (SymbolicInteger) attr);
+				  } else {
+					  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo);
+				  }
                 numSymRefs = prevSymRefs.length;
 
 			}
@@ -170,7 +175,13 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 		assert pcHeap != null;
 		assert symInputHeap != null;
 		
-		prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo);
+		// TODO add parameterized types aliasing handling. Check whether genericTypeInvocation is not null and not empty.
+		System.out.println("ALOAD: " + attr);
+		if(attr instanceof SymbolicInteger) {
+			  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo, (SymbolicInteger) attr);
+		  } else {
+			  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo);
+		  }
         numSymRefs = prevSymRefs.length;
 
 		int daIndex = 0; //index into JPF's dynamic area
@@ -197,7 +208,7 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 			}
 			daIndex = candidateNode.getIndex();
 			
-			System.out.println("\tALOAD\tAlias option");
+			//System.out.println("\tALOAD\tAlias option");
 		}
 		else if (currentChoice == numSymRefs && !(((Expression)attr).toString()).contains("this")){ //null object
 			//pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, new IntegerConstant(-1));
@@ -205,7 +216,7 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 			daIndex = MJIEnv.NULL;
 			strResult = null;
 			
-			System.out.println("\tALOAD\tNull option");
+			//System.out.println("\tALOAD\tNull option");
 		}
 		else if ((currentChoice == (numSymRefs + 1) && !abstractClass) | (currentChoice == numSymRefs && (((Expression)attr).toString()).contains("this"))) {
 			//creates a new object with all fields symbolic
@@ -250,10 +261,10 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 				  }
 			}
 			
-			System.out.println("\tALOAD\tNew object option");
+			//System.out.println("\tALOAD\tNew object option");
 		} else {
 			//TODO: fix subtypes
-			System.err.println("subtypes not handled");
+			//System.err.println("subtypes not handled");
 		}
 
 

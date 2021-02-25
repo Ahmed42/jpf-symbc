@@ -37,6 +37,10 @@
 
 package gov.nasa.jpf.symbc.heap;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+
 import gov.nasa.jpf.symbc.arrays.ArrayHeapNode;
 import gov.nasa.jpf.symbc.numeric.SymbolicInteger;
 import gov.nasa.jpf.vm.ClassInfo;
@@ -100,7 +104,51 @@ public class SymbolicInputHeap {
         return null;
 	}
 	
+	
+	// Check if type arguments of the type of "n" produce the same sequence of type arguments of typeArgs, 
+	// when applied to the definition of type
+	boolean checkTypeArgs(ClassInfo type, ArrayList<String> typeArgs, HeapNode n) {
+		SymbolicInteger symVar = n.getSymbolic();
+		  
+		  String nTypeDef = symVar.genericTypeDefinition != null && !symVar.genericTypeDefinition.isEmpty()? 
+				  symVar.genericTypeDefinition : n.getType().getGenericSignature();
+		  
+		  String nTypeInvocation = symVar.genericTypeInvocation;
+		  
+		  ArrayList<String> nTypeArgs = Helper.getGenericTypeInvocationArguments(nTypeInvocation);
+		  ArrayList<String> nTypeParams = Helper.getGenericTypeParameters(nTypeDef);
+		  
+		  ArrayList<String> typeParams = Helper.getGenericTypeParameters(type.getGenericSignature());
+		  
+		  Map<String, String> nParam2Arg = new HashMap<>();
+		  
+		  for(int i=0; i<nTypeParams.size(); i++) {
+			  nParam2Arg.put(nTypeParams.get(i), nTypeArgs.get(i));
+		  }
+		  
+		  typeParams.replaceAll(param -> nParam2Arg.get(param));
+		  
+		  return typeParams.equals(typeArgs);
+	}
+	
 	public HeapNode[] getNodesOfType(ClassInfo type) {
+		return getNodesOfType(type, null);
+	}
+	
+	public HeapNode[] getNodesOfType(ClassInfo type, SymbolicInteger symVar) {
+		
+		  System.out.println("SymbolicInputHeap.getNodesOfType: " + type);
+		  System.out.println("\tsymVar: " + symVar);
+		  if(symVar != null) {
+			  System.out.println("\tgenericTypeInvocation: " + symVar.genericTypeInvocation);
+		  }
+		  
+		  
+		  ArrayList<String> typeArgs = null;
+		  if(symVar != null && symVar.genericTypeInvocation != null) {
+			  typeArgs = Helper.getGenericTypeInvocationArguments(symVar.genericTypeInvocation);
+		  }
+		  
 		  
 		  int numSymRefs = 0;
 		  HeapNode n = header;
@@ -109,9 +157,16 @@ public class SymbolicInputHeap {
 			  ClassInfo tClassInfo = n.getType();
 			  //reference only objects of same class or super
 			  //if (fullType.equals(t)){
-			  //if (typeClassInfo.isInstanceOf(tClassInfo)) {
+			  //if (typeClassInfo.isInstanceOf(tClassInfo)) {		  
+			  
 			  if (tClassInfo.isInstanceOf(type)) {
-				  numSymRefs++;
+				  if(typeArgs != null && !typeArgs.isEmpty()) {
+					  if(checkTypeArgs(type, typeArgs, n)) {
+						  numSymRefs++;
+					  }
+				  } else {
+					  numSymRefs++;
+				  }
 			  }
 			  n = n.getNext();
 		  }
@@ -126,14 +181,24 @@ public class SymbolicInputHeap {
 			  //if (fullType.equals(t)){
 			  //if (typeClassInfo.isInstanceOf(tClassInfo)) {
 			  if (tClassInfo.isInstanceOf(type)) {
-				  nodes[i] = n;
-				  i++;
+				  if(typeArgs != null && !typeArgs.isEmpty()) {
+					  if(checkTypeArgs(type, typeArgs, n)) {
+						  numSymRefs++;
+						  nodes[i] = n;
+					  }
+				  } else {
+					  nodes[i] = n;
+					  i++;
+				  }
 			  }
 			  n = n.getNext();
 		  }
 		  return nodes;
 	}
 
+	
+
+	
     public ArrayHeapNode[] getArrayNodesOfType(ClassInfo type, int ref) {
         int numSymRefs = 0;
         HeapNode n = header;
