@@ -69,10 +69,14 @@ public class I2F extends gov.nasa.jpf.jvm.bytecode.I2F {
 					StackFrame sf = th.getModifiableTopFrame();
 					int ival = sf.pop();
 					sf.pushFloat(ival);
-					SymbolicReal sym_dval = new SymbolicReal();
+					
+					RealExpression sym_dval = sym_ival.toRealExpr(pc);
 					sf.setOperandAttr(sym_dval);
 					
-					pc._addDet(Comparator.EQ, sym_dval, sym_ival);
+					//SymbolicReal sym_dval = new SymbolicReal();
+					//sf.setOperandAttr(sym_dval);
+					
+					//pc._addDet(Comparator.EQ, sym_dval, sym_ival);
 					
 					if(!pc.simplify())  { // not satisfiable
 						th.getVM().getSystemState().setIgnored(true);
