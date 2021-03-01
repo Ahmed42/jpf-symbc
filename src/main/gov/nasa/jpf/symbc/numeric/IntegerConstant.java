@@ -321,4 +321,8 @@ public class IntegerConstant extends LinearIntegerExpression {
 		}
 	}
 
+	
+	public RealConstant toRealExpr(PathCondition context) {
+		return new RealConstant(value);
+	}
 }

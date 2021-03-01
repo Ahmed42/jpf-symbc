@@ -118,4 +118,8 @@ public class BinaryNonLinearIntegerExpression extends NonLinearIntegerExpression
 		}
 	}
 
+	
+	public BinaryRealExpression toRealExpr(PathCondition context) {
+		return new BinaryRealExpression(left.toRealExpr(context), op, right.toRealExpr(context));
+	}
 }

@@ -296,6 +296,8 @@ public abstract class IntegerExpression extends Expression {
 		throw new RuntimeException( "## Error: Expression Solution request Error: " + this);
 	}
 
+	
+	public abstract RealExpression toRealExpr(PathCondition context);
 
 	//protected void finalize() throws Throwable {
     //	System.out.println("Finalized LIExp -> " + this);

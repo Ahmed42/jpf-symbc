@@ -144,4 +144,8 @@ public class BinaryLinearIntegerExpression extends LinearIntegerExpression
 	//protected void finalize() throws Throwable {
     //	System.out.println("Finalized BLIExp -> " + this);
     //}
+	
+	public BinaryRealExpression toRealExpr(PathCondition context) {
+		return new BinaryRealExpression(left.toRealExpr(context), op, right.toRealExpr(context));
+	}
 }

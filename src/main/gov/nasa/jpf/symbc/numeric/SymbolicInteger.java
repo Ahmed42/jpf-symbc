@@ -193,7 +193,11 @@ public class SymbolicInteger extends LinearIntegerExpression
 			return getClass().getCanonicalName().compareTo(expr.getClass().getCanonicalName());
 		}
 	}
-
-
+	
+	public SymbolicReal toRealExpr(PathCondition context) {
+		SymbolicReal realVar = new SymbolicReal(this.name + "_REAL");
+		context._addDet(Comparator.EQ, realVar, this);
+		return realVar;
+	}
 	
 }

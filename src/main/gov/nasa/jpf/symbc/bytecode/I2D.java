@@ -69,10 +69,13 @@ public class I2D extends gov.nasa.jpf.jvm.bytecode.I2D {
 			StackFrame sf = th.getModifiableTopFrame();
 			int ival = sf.pop();
 			sf.pushDouble(ival);
-			SymbolicReal sym_dval = new SymbolicReal();
-			sf.setLongOperandAttr(sym_dval);
+			//SymbolicReal sym_dval = new SymbolicReal();
 			
-			pc._addDet(Comparator.EQ, sym_dval, sym_ival);
+			RealExpression realSymExpr = sym_ival.toRealExpr(pc);
+			sf.setLongOperandAttr(realSymExpr);
+			//sf.setLongOperandAttr(sym_dval);
+			
+			//pc._addDet(Comparator.EQ, sym_dval, sym_ival);
 			
 			if(!pc.simplify())  { // not satisfiable
 				th.getVM().getSystemState().setIgnored(true);
