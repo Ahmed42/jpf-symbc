@@ -48,7 +48,9 @@ public class MixedConstraint extends Constraint {
     
     public MixedConstraint makeCopy() {
     	MixedConstraint copy = new MixedConstraint(this);
-    	copy.and = this.and.makeCopy();
+    	if(this.and != null) {
+    		copy.and = this.and.makeCopy();
+    	}
     	return copy;
     }
     
