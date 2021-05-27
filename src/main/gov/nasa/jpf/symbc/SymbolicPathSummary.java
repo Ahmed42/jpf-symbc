@@ -75,7 +75,8 @@ public class SymbolicPathSummary {
 		
 
 		for(ParsableConstraint constraint : identityConstraints) {
-			transformations.appendAllConjuncts(constraint.makeCopy());
+			transformations.prependAllConjuncts(constraint.makeCopy());
+			//transformations.appendAllConjuncts(constraint.makeCopy());
 		}
 		
 	}
