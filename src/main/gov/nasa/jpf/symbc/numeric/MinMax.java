@@ -302,7 +302,7 @@ public class MinMax {
 		}
 
 		// Display the bounds collected from the configuration
-		System.out.println("symbolic.min_int=" + minInt);
+		/*System.out.println("symbolic.min_int=" + minInt);
 		System.out.println("symbolic.min_long=" + minLong);
 		System.out.println("symbolic.min_short=" + minShort);
 		System.out.println("symbolic.min_byte=" + minByte);
@@ -329,7 +329,7 @@ public class MinMax {
 		for (String k : varMaxDoubleMap.keySet()) {
 			System.out.println("symbolic.max_double_" + k + "="
 					+ varMaxDoubleMap.get(k));
-		}
+		}*/
 	}
 
 	private static long getVarMin(String varname, long min) {
