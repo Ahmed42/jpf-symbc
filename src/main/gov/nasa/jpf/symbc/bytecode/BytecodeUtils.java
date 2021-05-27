@@ -252,12 +252,15 @@ public class BytecodeUtils {
             int localVarsIdx = 0;
             // if debug option was not used when compiling the class,
             // then we do not have names of the locals
-
-            if (argsInfo != null) {
-                localVarsIdx = (isStatic ? 0 : 1); // Skip over "this" argument when non-static
-            } else {
-                throw new RuntimeException("ERROR: you need to turn debug option on");
+            
+            if(argSize > 0) {
+            	if (argsInfo != null) {
+                    localVarsIdx = (isStatic ? 0 : 1); // Skip over "this" argument when non-static
+                } else {
+                    throw new RuntimeException("ERROR: you need to turn debug option on");
+                }
             }
+            
             Map<String, Expression> expressionMap = new HashMap<String, Expression>();
 
             // take care of the method arguments
@@ -295,7 +298,7 @@ public class BytecodeUtils {
             	methodParamsTypes = getMethodParamsTypes(mi.getGenericSignature());
             }
             		
-            System.out.println("Method sig: " + mi.getGenericSignature());
+            //System.out.println("Method sig: " + mi.getGenericSignature());
 
             for (int j = 0; j < argSize; j++) { // j ranges over actual arguments
                 if (symClass || args.get(j).equalsIgnoreCase("SYM")) {

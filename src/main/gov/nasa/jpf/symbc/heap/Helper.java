@@ -272,7 +272,7 @@ public class Helper {
 			  //System.out.println("Creating heap node for abstract field!");
 			  
 			  if(typeClassInfo.getName().contains("java.util.Map")) {
-				  System.out.println("Creating heap node for Map field!");
+				  //System.out.println("Creating heap node for Map field!");
 				  ClassLoaderInfo classLoaderInfo = ti.getSystemClassLoaderInfo();
 				  ClassInfo concreteClassInfo = classLoaderInfo.getResolvedClassInfo("java.util.HashMap");
 				  typeClassInfo = concreteClassInfo;

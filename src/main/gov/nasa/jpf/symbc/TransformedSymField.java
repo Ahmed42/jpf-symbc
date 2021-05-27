@@ -222,7 +222,7 @@ public class TransformedSymField extends SymField {
 		
 		SymbolicInteger symFieldOrRet = new SymbolicInteger(fieldOrRetName);
 		
-		System.out.println(obj2Name);
+		//System.out.println(obj2Name);
 		
 		ElementInfo objElement = currentThread.getVM().getHeap().get(objRef);
 		
@@ -335,7 +335,7 @@ public class TransformedSymField extends SymField {
 						
 						continue;
 					} else { // concrete
-						System.out.println("FieldInfo: " + fieldInfo);
+						//System.out.println("FieldInfo: " + fieldInfo);
 						
 						if(fieldElement == null) {
 							Expression fieldSymVar = fieldInfo.getType().equals("java.lang.String")? 
@@ -391,10 +391,10 @@ public class TransformedSymField extends SymField {
 				
 				if(symbolicFieldValue != null) { // symbolic
 					transformations._addDet(Comparator.EQ, fieldSymVar, (RealExpression) symbolicFieldValue);
-					System.out.println("\tField: " + fieldSymVar + "\tValue: " + symbolicFieldValue);
+					//System.out.println("\tField: " + fieldSymVar + "\tValue: " + symbolicFieldValue);
 				} else { // concrete
 					transformations._addDet(Comparator.EQ, fieldSymVar, doubleConcreteFieldValue);
-					System.out.println("\tField: " + fieldSymVar + "\tValue: " + doubleConcreteFieldValue);
+					//System.out.println("\tField: " + fieldSymVar + "\tValue: " + doubleConcreteFieldValue);
 				}
 				
 				objFields.add(fieldSymVar);
@@ -406,10 +406,10 @@ public class TransformedSymField extends SymField {
 			SymbolicInteger fieldSymVar = new SymbolicInteger(fullFieldName);
 			if(symbolicFieldValue != null) { // symbolic
 				transformations._addDet(Comparator.EQ, fieldSymVar, (IntegerExpression) symbolicFieldValue);
-				System.out.println("\tField: " + fieldSymVar + "\tValue: " + symbolicFieldValue);
+				//System.out.println("\tField: " + fieldSymVar + "\tValue: " + symbolicFieldValue);
 			} else { // concrete
 				transformations._addDet(Comparator.EQ, fieldSymVar, longConcreteFieldValue);
-				System.out.println("\tField: " + fieldSymVar + "\tValue: " + longConcreteFieldValue);
+				//System.out.println("\tField: " + fieldSymVar + "\tValue: " + longConcreteFieldValue);
 			}
 			
 			objFields.add(fieldSymVar);
