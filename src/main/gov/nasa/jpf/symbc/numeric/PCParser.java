@@ -1223,7 +1223,7 @@ getExpression(stoex.value)), newae));
 	    
 	    while (constraint != null) {
 	    	Object newDPConstraint = null;
-	    	if(constraint instanceof RealConstraint) {
+	    	if(constraint instanceof RealConstraint) {	    		
 	    		newDPConstraint = buildDPRealConstraint((RealConstraint)constraint);
 	    	} else if(constraint instanceof LinearIntegerConstraint) {
 	    		newDPConstraint = buildDPLinearIntegerConstraint((LinearIntegerConstraint)constraint);
@@ -1233,6 +1233,8 @@ getExpression(stoex.value)), newae));
 	    		newDPConstraint = buildDPArrayConstraint((ArrayConstraint)constraint);
 	    	} else if(constraint instanceof RealArrayConstraint) {
 	    		newDPConstraint = buildDPRealArrayConstraint((RealArrayConstraint)constraint);
+	    	} else if(constraint instanceof NonLinearIntegerConstraint) {
+	    		newDPConstraint = buildDPNonLinearIntegerConstraint((NonLinearIntegerConstraint)constraint);
 	    	} else if(constraint instanceof LogicalGroupingConstraint) {
 	    		LogicalGroupingConstraint logicalGroupedConstraint = ((LogicalGroupingConstraint) constraint);
 	    		List<ParsableConstraint> groupedConstraints = logicalGroupedConstraint.getList();
@@ -1303,6 +1305,11 @@ getExpression(stoex.value)), newae));
 	    		} else {
 	    			newDPConstraint = pb.not(pb.makeIsNull(dpExpression));
 	    		}
+	    	}
+	    	
+	    	if(newDPConstraint == null) {
+	    		System.out.println("Constraint is null.");
+	    		
 	    	}
 	    	
 	    	if(pb.isFalse(newDPConstraint)) { // unsat
