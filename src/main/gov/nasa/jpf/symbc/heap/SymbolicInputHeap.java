@@ -137,11 +137,11 @@ public class SymbolicInputHeap {
 	
 	public HeapNode[] getNodesOfType(ClassInfo type, SymbolicInteger symVar) {
 		
-		  System.out.println("SymbolicInputHeap.getNodesOfType: " + type);
-		  System.out.println("\tsymVar: " + symVar);
-		  if(symVar != null) {
+		  //System.out.println("SymbolicInputHeap.getNodesOfType: " + type);
+		  //System.out.println("\tsymVar: " + symVar);
+		  /*if(symVar != null) {
 			  System.out.println("\tgenericTypeInvocation: " + symVar.genericTypeInvocation);
-		  }
+		  }*/
 		  
 		  
 		  ArrayList<String> typeArgs = null;
@@ -183,8 +183,9 @@ public class SymbolicInputHeap {
 			  if (tClassInfo.isInstanceOf(type)) {
 				  if(typeArgs != null && !typeArgs.isEmpty()) {
 					  if(checkTypeArgs(type, typeArgs, n)) {
-						  numSymRefs++;
+						  //numSymRefs++;
 						  nodes[i] = n;
+						  i++;
 					  }
 				  } else {
 					  nodes[i] = n;
