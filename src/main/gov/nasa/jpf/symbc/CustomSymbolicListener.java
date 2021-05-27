@@ -69,6 +69,7 @@ import gov.nasa.jpf.symbc.numeric.Expression;
 import gov.nasa.jpf.symbc.numeric.IntegerConstant;
 import gov.nasa.jpf.symbc.numeric.IntegerExpression;
 import gov.nasa.jpf.symbc.numeric.MinMax;
+import gov.nasa.jpf.symbc.numeric.NullConstraint;
 import gov.nasa.jpf.symbc.numeric.NullIndicator;
 import gov.nasa.jpf.symbc.numeric.PCChoiceGenerator;
 import gov.nasa.jpf.symbc.numeric.PathCondition;
@@ -107,6 +108,7 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
      * symbolic execution no longer necessary because we run spf stateless
      */
 	
+	public static boolean disableAliasing;
 	public static int id = 0;
 	
     private String currentMethodName = "";
@@ -120,19 +122,22 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
     // TODO change to full signature
     private String symbolicMethodSimpleName;
 
-    public CustomSymbolicListener(Config conf, JPF jpf, String sMethodSimpleName) {
+    public CustomSymbolicListener(Config conf, JPF jpf, String sMethodSimpleName, boolean disableAliasing) {
         jpf.addPublisherExtension(ConsolePublisher.class, this);
         methodsSymbolicSummaries = new HashMap<String, SymbolicMethodSummary>();
         symbolicMethodSimpleName = sMethodSimpleName;
         transformedSymFields = new ArrayList<>();
         externalStaticFields = new ArrayList<>();
-        
+        this.disableAliasing = disableAliasing;
         id++;
+        
+        //System.out.println("TEST");
+        
     }
 
     @Override
     public void propertyViolated(Search search) {
-
+    	
         VM vm = search.getVM();
 
         ChoiceGenerator<?> cg = vm.getChoiceGenerator();
@@ -159,14 +164,15 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                 pc.solve();
             }
             
-            System.out.println("An exception has been thrown.");
-            System.out.println("Path constraints: " + pc);
+            //System.out.println("An exception has been thrown.");
+            //System.out.println("Path constraints: " + pc);
             
             
             HeapChoiceGenerator heapCG = vm.getLastChoiceGeneratorOfType(HeapChoiceGenerator.class);
             PathCondition heapPC = (heapCG==null ? null : heapCG.getCurrentPCheap());
 
-            System.out.println("Heap constraints: " + heapPC);
+            //System.out.println("Heap constraints: " + heapPC);
+            //System.out.println("\n");
             
             // TODO put the error details in the result/transformation of the method
             // TODO add static fields transformations
@@ -188,6 +194,8 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
     
 	@Override
 	public void executeInstruction(VM vm, ThreadInfo currentThread, Instruction instructionToExecute) {
+		
+		
 		if (!vm.getSystemState().isIgnored()) {
 			Instruction insn = instructionToExecute;
 
@@ -203,7 +211,6 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 			if (ci != null) {
 				
 				
-				
 				// Get the latest choice generator of type PCChoiceGenerator or HeapChoiceGenerator
 				PCChoiceGenerator[] pcChoiceGens = vm.getChoiceGeneratorsOfType(PCChoiceGenerator.class);
 				HeapChoiceGenerator[] heapChoiceGens = vm.getChoiceGeneratorsOfType(HeapChoiceGenerator.class);
@@ -213,10 +220,10 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 				PCChoiceGenerator pcChoiceGen = vm.getLastChoiceGeneratorOfType(PCChoiceGenerator.class);
 				HeapChoiceGenerator heapChoiceGen = vm.getLastChoiceGeneratorOfType(HeapChoiceGenerator.class);
 				
-				if(mi.getLongName().equals("parse(String)")) {
+				/*if(mi.getLongName().equals("parse(String)")) {
 					StackFrame frame = currentThread.getModifiableTopFrame();
 					System.out.println("breakpoint");
-				}
+				}*/
 				
 				int pcChoiceNo = 0, pcOffset = 0;
 				
@@ -237,6 +244,8 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 
 					// System.out.println("GET\t" + insn);
 					// TODO we need to remove the method name check
+					
+					
 					if (methodName.equals(symbolicMethodSimpleName)) {
 						FieldInfo fieldInfo = ((JVMStaticFieldInstruction) insn).getFieldInfo();
 
@@ -334,6 +343,7 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 
 								String fieldName = ((Expression) attr).stringPC();
 								
+								//System.out.println("PUFIELD: " + fieldName);
 								
 								// Check if the field we are about to create a symbol for already exists, and is on the same current search path
 								boolean found = transformedSymFields.stream()
@@ -351,6 +361,54 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 													currentThread);
 									
 									transformedSymFields.add(changedField);
+									
+									
+									/*
+									 * Reflecting changes to aliases
+									 */
+									
+									/*int fieldStart = fieldName.lastIndexOf('.');
+									String fieldOwnerName = fieldName.substring(0, fieldStart);
+									String simpleFieldName = fieldName.substring(fieldStart + 1);
+									
+									
+									ParsableConstraint heapConstraint = heapPC.header;
+									while(heapConstraint != null) {
+										if(heapConstraint instanceof LinearIntegerConstraint &&
+												((LinearIntegerConstraint) heapConstraint).getComparator() == Comparator.EQ) {
+											IntegerExpression left = ((LinearIntegerConstraint) heapConstraint).getLeft();
+											IntegerExpression right = ((LinearIntegerConstraint) heapConstraint).getRight();
+											
+											if(left instanceof SymbolicInteger && right instanceof SymbolicInteger) {
+												SymbolicInteger leftRef = (SymbolicInteger) left;
+												SymbolicInteger rightRef = (SymbolicInteger) right;
+												
+												SymbolicInteger fieldOwnerToAdd = null;
+												if(leftRef.getName().equals(fieldOwnerName)) {
+													fieldOwnerToAdd = rightRef;
+												} else if(rightRef.getName().equals(fieldOwnerName)) {
+													fieldOwnerToAdd = leftRef;
+												}
+												
+												if(fieldOwnerToAdd != null) {
+													String fieldToAddName = fieldOwnerToAdd.getName() + "." + simpleFieldName;
+													SymbolicInteger fieldToAddVar = new SymbolicInteger(fieldToAddName);
+													
+													TransformedSymField changedAliasField = 
+															new TransformedSymField(fieldToAddVar,
+																	objRef, fieldOwner, fieldInfo, 
+																	pcOffset, pcChoiceNo, heapPC,
+																	currentThread);
+													
+													transformedSymFields.add(changedAliasField);
+												}
+											}
+										}
+										
+										heapConstraint = heapConstraint.and();
+									}*/
+									
+									
 								} 
 
 							} 
@@ -447,6 +505,8 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
 			}
 		}
 	}
+	
+	
     
     @Override
     public void instructionExecuted(VM vm, ThreadInfo currentThread, Instruction nextInstruction,
@@ -465,11 +525,17 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
             //if(meName.equals(symbolicMethodSimpleName)) {
             	//System.out.println(ti.getExecutedInstructions() + "\t" + insn + "\t" + ti.isFirstStepInsn());
             	//System.out.println("Executed: " + executedInstruction.getPosition() + "\t" + executedInstruction);
+            	
+            	
+            	//System.out.println("Instruction: " + insn);
+            	//System.out.println("\tDepth: " + vm.);
+            	
             //}
             
-            //System.out.println();
+            
 
             if (insn instanceof JVMInvokeInstruction) {
+            	
                 JVMInvokeInstruction md = (JVMInvokeInstruction) insn;
                 String methodName = md.getInvokedMethodName();
                 //System.out.println("method: " + methodName);
@@ -495,6 +561,8 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                         || BytecodeUtils.isMethodSymbolic(conf, mi.getFullName(), numberOfArgs, null)) {
                 	
                 	
+                	
+                	//System.out.println("INVOKE METHOD: " + methodName);
                 	
                     //MethodSummary methodSummary = new MethodSummary();
 
@@ -553,7 +621,8 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                         symValuesStr = symValuesStr.substring(0, symValuesStr.length() - 1);
                     }*/
                     //methodSummary.setSymValues(symValuesStr);
-
+                	
+                	
                     currentMethodName = longName;
                     //allSummaries.put(longName, methodSummary);
                     
@@ -573,14 +642,16 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                     String longName = mi.getLongName();
                     int numberOfArgs = mi.getNumberOfArguments();
                     
-
+                    //System.out.println("METHOD: " + methodName);
+                   
                     if (((BytecodeUtils.isClassSymbolic(conf, className, mi, methodName))
                             || BytecodeUtils.isMethodSymbolic(conf, mi.getFullName(), numberOfArgs, null))) {
                     	
+                    	//System.out.println("RETURN METHOD: " + methodName);
                     	
-                    	//System.out.println("path!");
+                   
                         ChoiceGenerator<?> cg = vm.getChoiceGenerator();
-                        //System.out.println(cg);
+     
                         if (!(cg instanceof PCChoiceGenerator)) {
                             ChoiceGenerator<?> prev_cg = cg.getPreviousChoiceGenerator();
                             while (!((prev_cg == null) || (prev_cg instanceof PCChoiceGenerator))) {
@@ -588,7 +659,7 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             }
                             cg = prev_cg;
                         }
-                        //System.out.println(cg);
+                        
                         if ((cg instanceof PCChoiceGenerator) && ((PCChoiceGenerator) cg).getCurrentPC() != null) {
                             PathCondition pc = ((PCChoiceGenerator) cg).getCurrentPC();
                             //System.out.println("PATH!" + pc);
@@ -793,7 +864,13 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
     								
     								transformedField.getTransformationConstraint(transformations, obj2Name, fieldName2ObjName, objName2Fields);
     								
-    								System.out.println(obj2Name);
+    								
+    								/*
+    								 * Adding transformation to aliases
+    								 */
+    								
+    								
+    								//System.out.println(obj2Name);
     								
     								/*if(transformationToAdd instanceof Constraint) {
     									transformations.prependAllConjuncts((Constraint) transformationToAdd);
@@ -819,18 +896,20 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
                             if(!symbolicMethodSummary.containsPathSummary(pathSummary)) {
                             	symbolicMethodSummary.addPathSummary(pathSummary);
                             }
-                                
-                            System.out.println("Choice Gen PC: " + pc);
+                               
+                            /*System.out.println("Choice Gen PC: " + pc);
                             System.out.println("-------------------");
                             System.out.println("Choice Gen HC: " + heapPC);
                             System.out.println("===================");
-                            System.out.println("Trasformations: " + transformations);
-                            System.out.println("===================");
-                            System.out.println("Arrays transformations: " + pc.arrayExpressions);
-                            System.out.println("\n");
+                            System.out.println("Trasformations: " + transformations);*/
+                            //System.out.println("===================");
+                            //System.out.println("Arrays transformations: " + pc.arrayExpressions);
+                            //System.out.println("\n");
                            
 
                             
+                        } else {
+                        	System.out.println("NO ChoiceGen!");
                         }
                     }
                 }
@@ -886,7 +965,20 @@ public class CustomSymbolicListener extends PropertyListenerAdapter implements P
      * @return true if the path given by Heap CGs `choiceGens` defines `field` at some point
      */
     private boolean containsTrasformation(HeapChoiceGenerator[] choiceGens, SymField field) {
-    	return Arrays.stream(choiceGens).anyMatch(choiceGen ->  choiceGen.getCurrentPCheap().equals(field.getHeapPC()));
+    	/*if(field == null || choiceGens == null) {
+    		System.out.println("field is null");
+    	
+    	}
+    	for(int i = 0; i < choiceGens.length; i++) {
+    		if(choiceGens[i] == null) {
+    			System.out.println("A choiceGen is null");
+    		} else if(choiceGens[i].getCurrentPCheap() == null) {
+    			System.out.println("A choiceGens[i].getCurrentPCheap() is null");
+    		}
+    	}*/
+    	return Arrays.stream(choiceGens).anyMatch(choiceGen ->  choiceGen != null && 
+    			choiceGen.getCurrentPCheap() != null &&
+    			choiceGen.getCurrentPCheap().equals(field.getHeapPC()));
     }
     
     public Map<String, SymbolicMethodSummary> getSymbolicSummaries() {

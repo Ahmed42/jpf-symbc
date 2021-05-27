@@ -18,7 +18,10 @@
 package gov.nasa.jpf.symbc.bytecode;
 
 
+import java.util.Collections;
+
 import gov.nasa.jpf.Config;
+import gov.nasa.jpf.symbc.CustomSymbolicListener;
 import gov.nasa.jpf.symbc.SymbolicInstructionFactory;
 import gov.nasa.jpf.symbc.arrays.ArrayExpression;
 import gov.nasa.jpf.symbc.heap.HeapChoiceGenerator;
@@ -98,8 +101,10 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 	  // if it is we need to do lazy initialization
 
 	  if (!(fi.isReference() && attr != null)) {
+		  //System.out.println("GETFIELD: concrete");
 		  return super.execute(ti);
 	  }
+	 
 	  
 	  if(attr instanceof StringSymbolic || attr instanceof SymbolicInteger) {
 		  if(((Expression) attr).isLazyInitialized) {
@@ -126,6 +131,9 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 	      //  return this; 
 	//      }
 	 //   }
+	  
+	  
+	  boolean disableAliasing = CustomSymbolicListener.disableAliasing;
 	  
 	  int currentChoice;
 	  ChoiceGenerator<?> thisHeapCG;
@@ -156,7 +164,6 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 			  SymbolicInputHeap symInputHeap =
 				  ((HeapChoiceGenerator)prevHeapCG).getCurrentSymInputHeap();
 			  
-			  System.out.println("GETFIELD: " + attr);
 			  if(attr instanceof SymbolicInteger) {
 				  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo, (SymbolicInteger) attr);
 			  } else {
@@ -170,6 +177,12 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 			  abstractClass = true;
 			  increment = 1; // only null
 		  }*/
+		  
+		  if(disableAliasing) {
+			  numSymRefs = 0;
+		  }
+		  
+	
 
 		  thisHeapCG = new HeapChoiceGenerator(numSymRefs+increment);  //+null,new
 		  ti.getVM().getSystemState().setNextChoiceGenerator(thisHeapCG);
@@ -213,7 +226,7 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 	  assert symInputHeap != null;
 	  
 	 
-	  System.out.println("GETFIELD: " + attr);
+
 	  
 	  
 	  if(attr instanceof SymbolicInteger) {
@@ -222,6 +235,13 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 		  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo);
 	  }
 	  numSymRefs = prevSymRefs.length;
+	  
+	 
+	  
+	  // Disabling aliasing
+	  if(disableAliasing) {
+		  numSymRefs = 0;
+	  }
 	  
 	  int daIndex = 0; //index into JPF's dynamic area
 	  
@@ -238,7 +258,33 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 			  strResult = symVar;
 			  strResult.isLazyInitialized = true;
 		  } else {
-			  pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, candidateNode.getSymbolic());
+			  SymbolicInteger candidateAlias = candidateNode.getSymbolic();
+			  SymbolicInteger currentVar = (SymbolicInteger) attr;
+			  
+			  //String candidateAliasName = candidateAlias.getName();
+			  //String currentVarName = currentVar.getName();
+			  
+			  //String aliasVarName = currentVarName.compareTo(candidateAliasName)<0? (currentVarName + candidateAliasName): 
+			//	  (candidateAliasName + currentVarName);
+			  
+			  //SymbolicInteger aliasVar = new SymbolicInteger(aliasVarName);
+			  //aliasVar.isLazyInitialized = true;
+			  
+			  
+			  //pcHeap._addDet(Comparator.EQ, currentVar, aliasVar);
+			  //pcHeap._addDet(Comparator.EQ, candidateAlias, aliasVar);
+			  pcHeap._addDet(Comparator.EQ, currentVar, candidateAlias);
+			  
+			  
+			  /*if(currentVar.compareTo(candidateAlias) <= 0) {
+				  refResult = new SymbolicInteger(currentVar.getName());
+			  } else {
+				  refResult = new SymbolicInteger(candidateAlias.getName());
+			  }*/
+
+			  refResult = candidateNode.getSymbolic();
+			  //refResult = aliasVar;
+			  refResult.isLazyInitialized = true;
 			  
 			  if(typeClassInfo.isArray()) {
 				  refResult = candidateNode.getSymbolic();
@@ -263,6 +309,7 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 		  //pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, new IntegerConstant(-1));
 		  pcHeap._addDet((Expression) attr, NullIndicator.NULL);
 		  daIndex = MJIEnv.NULL;//-1;
+		  refResult = null;
 		  //result = null;
 		  //System.out.println("\tGETFIELD\tNull option");
 	  }
@@ -281,6 +328,9 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 				  		symInputHeap, numSymRefs, prevSymRefs, ei.isShared());
 			  
 			  daIndex = newNode.getIndex();
+			  
+			  refResult = newNode.getSymbolic();
+			  refResult.isLazyInitialized = true;
 			  
 			  if(typeClassInfo.isArray()) {
 				  refResult = newNode.getSymbolic();
@@ -316,6 +366,10 @@ public class GETFIELD extends gov.nasa.jpf.jvm.bytecode.GETFIELD {
 		 
 	 } else {
 		 ei.setFieldAttr(fi, null);
+		 
+		 
+		 ei.setFieldAttr(fi, refResult);
+		 frame.setOperandAttr(refResult);
 	 }
 	 
 

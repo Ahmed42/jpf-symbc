@@ -19,6 +19,7 @@
 package gov.nasa.jpf.symbc.bytecode;
 
 import gov.nasa.jpf.Config;
+import gov.nasa.jpf.symbc.CustomSymbolicListener;
 import gov.nasa.jpf.symbc.SymbolicInstructionFactory;
 import gov.nasa.jpf.symbc.arrays.ArrayExpression;
 import gov.nasa.jpf.symbc.heap.HeapChoiceGenerator;
@@ -87,11 +88,15 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 
 		// || attr instanceof StringExpression 
 		if(attr == null || typeOfLocalVar.equals("?") || attr instanceof SymbolicStringBuilder) {
+			//System.out.println("ALOAD: concrete");
 			return super.execute(th);
 		}
 		
+		//System.out.println("ALOAD: symbolic");
+		
 		if(attr instanceof StringSymbolic || attr instanceof SymbolicInteger) {
 			if(((Expression) attr).isLazyInitialized) {
+				//System.out.println("ALOAD: lazy initialized!");
 				return super.execute(th);
 			}
 		} else if(attr instanceof StringExpression) {
@@ -114,6 +119,9 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 		int currentChoice;
 		ChoiceGenerator<?> thisHeapCG;
 		
+		boolean disableAliasing = CustomSymbolicListener.disableAliasing;
+		
+		
 		if(!th.isFirstStepInsn()) {
 			//System.out.println("the first time");
 
@@ -128,7 +136,7 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 				SymbolicInputHeap symInputHeap =
 					((HeapChoiceGenerator)prevHeapCG).getCurrentSymInputHeap();
 
-				System.out.println("ALOAD: " + attr);
+				//System.out.println("ALOAD: " + attr);
 				if(attr instanceof SymbolicInteger) {
 					  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo, (SymbolicInteger) attr);
 				  } else {
@@ -144,7 +152,12 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 				 increment = 1; // only null for abstract, non null for this
 			}
 			
+			if(disableAliasing) {
+				  numSymRefs = 0;
+			  }
 			// TODO fix: subtypes
+			
+			//System.out.println("ALOAD: # of aliases: " + numSymRefs);
 
 				thisHeapCG = new HeapChoiceGenerator(numSymRefs+increment);  //+null,new
 			
@@ -176,13 +189,18 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 		assert symInputHeap != null;
 		
 		// TODO add parameterized types aliasing handling. Check whether genericTypeInvocation is not null and not empty.
-		System.out.println("ALOAD: " + attr);
+		//System.out.println("ALOAD: " + attr);
 		if(attr instanceof SymbolicInteger) {
 			  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo, (SymbolicInteger) attr);
 		  } else {
 			  prevSymRefs = symInputHeap.getNodesOfType(typeClassInfo);
 		  }
         numSymRefs = prevSymRefs.length;
+        
+        // Disabling aliasing
+        if(disableAliasing) {
+			  numSymRefs = 0;
+		  }
 
 		int daIndex = 0; //index into JPF's dynamic area
 		
@@ -192,6 +210,9 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 		if (currentChoice < numSymRefs) { // lazy initialization using a previously lazily initialized object
 			HeapNode candidateNode = prevSymRefs[currentChoice];
 			// here we should update pcHeap with the constraint attr == candidateNode.sym_v
+			//System.out.println("Aliasing choice!");
+			//refResult = candidateNode.getSymbolic();
+			//refResult.isLazyInitialized = true;
 			
 			if(attr instanceof StringSymbolic) {
 				  StringSymbolic symVar = ((StringHeapNode) candidateNode).getStringSymbolic();
@@ -199,7 +220,37 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 				  strResult = symVar;
 				  strResult.isLazyInitialized = true;
 			} else {
-				  pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, candidateNode.getSymbolic());
+				SymbolicInteger candidateAlias = candidateNode.getSymbolic();
+				  SymbolicInteger currentVar = (SymbolicInteger) attr;
+				  
+				  /*String candidateAliasName = candidateAlias.getName();
+				  String currentVarName = currentVar.getName();
+				  
+				  String aliasVarName = currentVarName.compareTo(candidateAliasName)<0? (currentVarName + candidateAliasName) : 
+					  (candidateAliasName + currentVarName);
+				  
+				  SymbolicInteger aliasVar = new SymbolicInteger(aliasVarName);
+				*/
+				  
+				  //System.out.println("ALOAD (alias choice): " + currentVar);
+				  
+				  pcHeap._addDet(Comparator.EQ, currentVar, candidateAlias);
+				  //pcHeap._addDet(Comparator.EQ, currentVar, aliasVar);
+				  //pcHeap._addDet(Comparator.EQ, candidateAlias, aliasVar);
+				  
+				  
+				  /*if(currentVar.compareTo(candidateAlias) <= 0) {
+					  refResult = new SymbolicInteger(currentVar.getName());
+				  } else {
+					  refResult = new SymbolicInteger(candidateAlias.getName());
+				  }*/
+	
+				  refResult = candidateAlias;
+				  //refResult = aliasVar;
+				  refResult.isLazyInitialized = true;
+				
+				
+				  //pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, candidateNode.getSymbolic());
 				  
 				  if(typeClassInfo.isArray()) {
 					  refResult = candidateNode.getSymbolic();
@@ -208,15 +259,17 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 			}
 			daIndex = candidateNode.getIndex();
 			
-			//System.out.println("\tALOAD\tAlias option");
 		}
 		else if (currentChoice == numSymRefs && !(((Expression)attr).toString()).contains("this")){ //null object
 			//pcHeap._addDet(Comparator.EQ, (SymbolicInteger) attr, new IntegerConstant(-1));
 			pcHeap._addDet((Expression) attr, NullIndicator.NULL);
 			daIndex = MJIEnv.NULL;
 			strResult = null;
+			refResult = null;
 			
 			//System.out.println("\tALOAD\tNull option");
+			
+			//System.out.println("ALOAD (null choice): " + attr);
 		}
 		else if ((currentChoice == (numSymRefs + 1) && !abstractClass) | (currentChoice == numSymRefs && (((Expression)attr).toString()).contains("this"))) {
 			//creates a new object with all fields symbolic
@@ -228,6 +281,10 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 				  strResult = node.getStringSymbolic();
 				  strResult.isLazyInitialized = true;
 			} else {
+				
+				//System.out.println("ALOAD (new choice): " + attr);
+				
+				//System.out.println("\tALOAD\tNew object option");
 				/*LocalVarInfo localVarInfo = getLocalVarInfo();
 				
 				  System.out.println("Generic?");
@@ -239,6 +296,9 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 				
 				  HeapNode newNode = Helper.addNewHeapNode(typeClassInfo, th, attr, pcHeap,
 							symInputHeap, numSymRefs, prevSymRefs, shared);
+				  
+				  refResult = newNode.getSymbolic();
+				  refResult.isLazyInitialized = true;
 				  
 				  daIndex = newNode.getIndex();
 				  
@@ -286,11 +346,15 @@ public class ALOAD extends gov.nasa.jpf.jvm.bytecode.ALOAD {
 			sf.setLocalAttr(index, refResult);
 			sf.setOperandAttr(refResult);
 		 } else {
-			sf.setLocalAttr(index, null);
+			//sf.setLocalAttr(index, null);
+			
+			sf.setLocalAttr(index, refResult);
+			sf.setOperandAttr(refResult);
 		}
 		
 		
-		//sf.setOperandAttr(result);
+		
+		
 		  
 
 		((HeapChoiceGenerator)thisHeapCG).setCurrentPCheap(pcHeap);
